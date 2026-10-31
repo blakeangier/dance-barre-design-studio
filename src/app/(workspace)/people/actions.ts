@@ -27,7 +27,12 @@ export async function updateAccess(formData: FormData) {
   const roleValue = String(formData.get("role") ?? "");
   const fullName = String(formData.get("fullName") ?? "").trim();
   const canPurchase = formData.get("canPurchase") === "on";
+  const canUpdateOrderStatus = formData.get("canUpdateOrderStatus") === "on";
   const isActive = formData.get("isActive") === "on";
+  const programIds = formData
+    .getAll("programId")
+    .map((value) => Number(value))
+    .filter((value) => Number.isInteger(value) && value > 0);
 
   if (!UUID_PATTERN.test(profileId) || !isAppRole(roleValue)) {
     done("missing-person");
@@ -65,6 +70,7 @@ export async function updateAccess(formData: FormData) {
         ...userResult.user.app_metadata,
         role: roleValue,
         can_purchase: canPurchase,
+        can_update_order_status: canUpdateOrderStatus,
         full_name: fullName,
       },
     },
@@ -78,11 +84,35 @@ export async function updateAccess(formData: FormData) {
       full_name: fullName,
       role: roleValue,
       can_purchase: canPurchase,
+      can_update_order_status: canUpdateOrderStatus,
       is_active: isActive,
     })
     .eq("id", profileId);
 
   if (profileError) done("failed");
+
+  const { error: clearLinks } = await supabase
+    .from("director_programs")
+    .delete()
+    .eq("profile_id", profileId);
+  if (
+    clearLinks &&
+    clearLinks.code !== "42P01" &&
+    clearLinks.code !== "PGRST205"
+  ) {
+    done("failed");
+  }
+  if (!clearLinks && programIds.length > 0) {
+    const { error: linkError } = await supabase
+      .from("director_programs")
+      .insert(
+        programIds.map((programId) => ({
+          profile_id: profileId,
+          program_id: programId,
+        })),
+      );
+    if (linkError) done("failed");
+  }
 
   done("saved");
 }

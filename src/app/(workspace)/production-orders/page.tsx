@@ -1,5 +1,9 @@
 import Link from "next/link";
 import { Suspense } from "react";
+import {
+  ProductionSteps,
+  StatusPill,
+} from "@/components/orders/production-status";
 import { ListHeader } from "@/components/records/list-header";
 import { LoadingLine } from "@/components/shell/loading-line";
 import { NoAccess } from "@/components/shell/no-access";
@@ -7,6 +11,10 @@ import { canEditInventory, canSeePrivateRecords } from "@/lib/auth/permissions";
 import { firstQueryValue } from "@/lib/auth/notices";
 import { gateArea } from "@/lib/auth/session";
 import { money } from "@/lib/inventory/format";
+import {
+  PRODUCTION_STATUSES,
+  isProductionStatus,
+} from "@/lib/orders/production-status";
 import { createClient } from "@/lib/supabase/server";
 
 export const metadata = { title: "Orders" };
@@ -18,6 +26,8 @@ type OrderRow = {
   status: string | null;
   status_raw: string | null;
   order_date: string | null;
+  production_status: string | null;
+  fitting_target_raw: string | null;
 };
 
 type PrivateRow = {
@@ -45,13 +55,24 @@ async function OrdersScreen({
 }) {
   const gate = await gateArea("production-orders");
   if (!gate.ok) return <NoAccess reason={gate.reason} />;
-  const showArchived = firstQueryValue((await searchParams).archived) === "1";
+  const params = await searchParams;
+  const showArchived = firstQueryValue(params.archived) === "1";
+  const statusFilter = firstQueryValue(params.status) ?? "";
   const supabase = await createClient();
   let ordersQuery = supabase
     .from("costume_orders")
-    .select("id, order_number, production_song, status, status_raw, order_date")
+    .select(
+      "id, order_number, production_song, status, status_raw, order_date, production_status, fitting_target_raw",
+    )
     .order("order_number");
   if (!showArchived) ordersQuery = ordersQuery.is("archived_at", null);
+  if (statusFilter === "cancelled") {
+    ordersQuery = ordersQuery.eq("status", "cancelled");
+  } else if (isProductionStatus(statusFilter)) {
+    ordersQuery = ordersQuery
+      .eq("production_status", statusFilter)
+      .is("status", null);
+  }
   const ordersResult = await ordersQuery;
   const privateResult = canSeePrivateRecords(gate.profile)
     ? await supabase
@@ -74,9 +95,44 @@ async function OrdersScreen({
         showArchived={showArchived}
         canCreate={canEditInventory(gate.profile)}
       />
+      {ordersResult.error ? (
+        <p className="text-sm text-muted">
+          Production status appears after its migration is applied.
+        </p>
+      ) : (
+        <form method="get" className="flex flex-col gap-2">
+          {showArchived ? (
+            <input type="hidden" name="archived" value="1" />
+          ) : null}
+          <label className="text-sm font-medium" htmlFor="status">
+            Production status
+          </label>
+          <select
+            id="status"
+            name="status"
+            defaultValue={statusFilter}
+            className="min-h-12 rounded-xl border border-line bg-card px-3 text-base"
+          >
+            <option value="">All</option>
+            {PRODUCTION_STATUSES.map((status) => (
+              <option key={status.value} value={status.value}>
+                {status.label}
+              </option>
+            ))}
+            <option value="cancelled">Cancelled</option>
+          </select>
+          <button
+            type="submit"
+            className="min-h-12 rounded-full border border-ink px-4 text-sm font-medium text-ink"
+          >
+            Show
+          </button>
+        </form>
+      )}
       <ul className="flex flex-col gap-3">
         {((ordersResult.data ?? []) as OrderRow[]).map((order) => {
           const hidden = privates.get(order.id);
+          const cancelled = order.status === "cancelled";
           return (
             <li
               key={order.id}
@@ -89,10 +145,19 @@ async function OrdersScreen({
                 {order.order_number}
                 {order.production_song ? ` · ${order.production_song}` : ""}
               </Link>
-              <p className="text-sm text-muted">
-                {order.status === "cancelled"
-                  ? `Cancelled (${order.status_raw})`
-                  : (order.order_date ?? "No date")}
+              <div className="mt-2">
+                <StatusPill
+                  status={order.production_status}
+                  cancelled={cancelled}
+                />
+                {cancelled ? null : (
+                  <ProductionSteps status={order.production_status} />
+                )}
+              </div>
+              <p className="mt-2 text-sm text-muted">
+                {cancelled
+                  ? `Cancelled (${order.status_raw ?? "cancelled"})`
+                  : `Due ${order.fitting_target_raw ?? "not set"}`}
               </p>
               {hidden ? (
                 <p className="mt-1 text-sm text-muted">

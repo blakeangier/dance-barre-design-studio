@@ -27,4 +27,5 @@ export const ROLE_BADGE: Record<AppRole, string> = {
   production_manager: "bg-teal text-ink",
   payroll_admin: "bg-orange text-ink",
   employee: "bg-lime text-ink",
+  program_director: "border border-ink bg-card text-ink",
 };

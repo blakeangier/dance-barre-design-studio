@@ -1,7 +1,11 @@
 "use server";
 
 import { redirect } from "next/navigation";
-import { canEditInventory, canSeePrivateRecords } from "@/lib/auth/permissions";
+import {
+  canEditInventory,
+  canSeePrivateRecords,
+  canUpdateOrderStatus,
+} from "@/lib/auth/permissions";
 import { getSessionState } from "@/lib/auth/session";
 import {
   checked,
@@ -13,6 +17,7 @@ import {
   requiredText,
   type FieldResult,
 } from "@/lib/records/edit";
+import { isProductionStatus } from "@/lib/orders/production-status";
 import { createClient } from "@/lib/supabase/server";
 
 function bail(path: string, notice: string): never {
@@ -29,6 +34,23 @@ function problem(
 ): "duplicate" | "failed" | null {
   if (!error) return null;
   return error.code === "23505" ? "duplicate" : "failed";
+}
+
+export async function updateProductionStatus(formData: FormData) {
+  const state = await getSessionState();
+  if (state.status !== "ready") redirect("/login");
+  const orderNumber = String(formData.get("orderNumber") ?? "").trim();
+  const back = `/production-orders/${encodeURIComponent(orderNumber)}`;
+  if (!canUpdateOrderStatus(state.profile)) redirect(`${back}?notice=denied`);
+  const next = String(formData.get("productionStatus") ?? "");
+  if (!isProductionStatus(next)) redirect(`${back}?notice=status`);
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("costume_orders")
+    .update({ production_status: next })
+    .eq("order_number", orderNumber);
+  if (error) redirect(`${back}?notice=failed`);
+  redirect(`${back}?notice=record-saved`);
 }
 
 async function editor() {
@@ -58,6 +80,7 @@ export async function saveOrder(formData: FormData) {
   const female = take(back, optionalNumber(formData.get("femaleTotal")));
   const male = take(back, optionalNumber(formData.get("maleTotal")));
   const notes = take(back, optionalText(formData.get("notes"), 2000));
+  const programId = take(back, optionalId(formData.get("programId")));
   const keepArchived = String(formData.get("archivedAt") ?? "").trim();
   const archivedAt = checked(formData.get("archive"))
     ? keepArchived || new Date().toISOString()
@@ -77,6 +100,7 @@ export async function saveOrder(formData: FormData) {
     female_total: female,
     male_total: male,
     notes,
+    program_id: programId,
     archived_at: archivedAt,
   };
   let orderId = id;

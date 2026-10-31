@@ -38,6 +38,7 @@ type PersonRow = {
   full_name: string;
   role: AppRole;
   can_purchase: boolean;
+  can_update_order_status: boolean;
   is_active: boolean;
   job_title: string | null;
   employment_type: string | null;
@@ -89,7 +90,7 @@ async function PeopleScreen({
   let peopleQuery = supabase
     .from("profiles")
     .select(
-      "id, full_name, role, can_purchase, is_active, job_title, employment_type, start_date, start_note, pronouns",
+      "id, full_name, role, can_purchase, can_update_order_status, is_active, job_title, employment_type, start_date, start_note, pronouns",
     )
     .order("full_name");
   if (!showArchived) peopleQuery = peopleQuery.eq("is_active", true);
@@ -104,6 +105,27 @@ async function PeopleScreen({
           )
       : Promise.resolve({ data: [] }),
   ]);
+
+  const programsResult = await supabase
+    .from("programs")
+    .select("id, name")
+    .order("name");
+  const linksResult = programsResult.error
+    ? { data: [] }
+    : await supabase.from("director_programs").select("profile_id, program_id");
+  const programs = (programsResult.data ?? []) as {
+    id: number;
+    name: string;
+  }[];
+  const programLinks = new Map<string, number[]>();
+  for (const link of (linksResult.data ?? []) as {
+    profile_id: string;
+    program_id: number;
+  }[]) {
+    const current = programLinks.get(link.profile_id) ?? [];
+    current.push(link.program_id);
+    programLinks.set(link.profile_id, current);
+  }
 
   const contacts = new Map(
     ((contactsResult.data ?? []) as ContactRow[]).map((contact) => [
@@ -174,6 +196,11 @@ async function PeopleScreen({
                 >
                   {ROLE_LABELS[person.role]}
                 </span>
+                {person.can_update_order_status ? (
+                  <span className="rounded-full border border-line bg-card px-2 py-0.5 text-xs font-medium text-ink">
+                    Order status
+                  </span>
+                ) : null}
                 {person.can_purchase ? (
                   <span className="rounded-full border border-purple bg-card px-2 py-0.5 text-xs font-medium text-ink">
                     Purchasing
@@ -226,6 +253,41 @@ async function PeopleScreen({
                     />
                     Can purchase outside costumes and dancewear
                   </label>
+                  <label className="flex min-h-11 items-center gap-2 text-sm">
+                    <input
+                      type="checkbox"
+                      name="canUpdateOrderStatus"
+                      defaultChecked={person.can_update_order_status}
+                    />
+                    Can update order production status
+                  </label>
+                  {programs.length > 0 ? (
+                    <fieldset className="flex flex-col gap-2">
+                      <legend className="text-sm font-medium">
+                        Programs this director can see
+                      </legend>
+                      <p className="text-sm text-muted">
+                        Leave these unchecked and a program director sees every
+                        order. Checked programs limit that person.
+                      </p>
+                      {programs.map((program) => (
+                        <label
+                          key={program.id}
+                          className="flex min-h-11 items-center gap-2 text-sm"
+                        >
+                          <input
+                            type="checkbox"
+                            name="programId"
+                            value={program.id}
+                            defaultChecked={(
+                              programLinks.get(person.id) ?? []
+                            ).includes(program.id)}
+                          />
+                          {program.name}
+                        </label>
+                      ))}
+                    </fieldset>
+                  ) : null}
                   <label className="flex min-h-11 items-center gap-2 text-sm">
                     <input
                       type="checkbox"

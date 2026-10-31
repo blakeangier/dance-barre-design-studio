@@ -3,6 +3,7 @@ import { Suspense } from "react";
 import {
   saveFitting,
   saveOrder,
+  updateProductionStatus,
 } from "@/app/(workspace)/records/order-actions";
 import {
   AreaField,
@@ -12,13 +13,25 @@ import {
   TextField,
 } from "@/components/records/fields";
 import { PhotoThumb } from "@/components/inventory/photo-thumb";
+import {
+  ProductionSteps,
+  StatusPill,
+} from "@/components/orders/production-status";
 import { LoadingLine } from "@/components/shell/loading-line";
 import { NoAccess } from "@/components/shell/no-access";
 import { StatusNote } from "@/components/shell/status-note";
-import { canEditInventory, canSeePrivateRecords } from "@/lib/auth/permissions";
+import {
+  canEditInventory,
+  canSeePrivateRecords,
+  canUpdateOrderStatus,
+} from "@/lib/auth/permissions";
 import { firstQueryValue } from "@/lib/auth/notices";
 import { gateArea } from "@/lib/auth/session";
 import { photosForMaterials } from "@/lib/inventory/photo-urls";
+import {
+  PRODUCTION_STATUSES,
+  productionStatusLabel,
+} from "@/lib/orders/production-status";
 import { EDIT_NOTICES, ORDER_STATUSES } from "@/lib/records/edit";
 import { createClient } from "@/lib/supabase/server";
 
@@ -41,6 +54,8 @@ type OrderRow = {
   male_total: number | null;
   notes: string | null;
   archived_at: string | null;
+  production_status: string | null;
+  program_id: number | null;
 };
 
 type PrivateRow = {
@@ -80,12 +95,13 @@ async function OrderScreen({ params, searchParams }: PageProps) {
   const notice =
     EDIT_NOTICES[firstQueryValue((await searchParams).notice) ?? ""];
   const editor = canEditInventory(gate.profile);
+  const canStatus = canUpdateOrderStatus(gate.profile);
   const canPrivate = canSeePrivateRecords(gate.profile);
   const supabase = await createClient();
   const { data: order } = await supabase
     .from("costume_orders")
     .select(
-      "id, order_number, production_song, status, order_date, fitting_target_raw, accessory, female_total, male_total, notes, archived_at",
+      "id, order_number, production_song, status, order_date, fitting_target_raw, accessory, female_total, male_total, notes, archived_at, production_status, program_id",
     )
     .eq("order_number", orderNumber)
     .maybeSingle();
@@ -139,6 +155,47 @@ async function OrderScreen({ params, searchParams }: PageProps) {
     fabric_as_written: string | null;
     material_id: number | null;
   }[];
+  const styleIds = styles.map((style) => style.id);
+  const [historyResult, programsResult, stageResult] = await Promise.all([
+    supabase
+      .from("order_status_events")
+      .select("id, from_status, to_status, created_at")
+      .eq("order_id", typed.id)
+      .order("created_at", { ascending: false }),
+    editor
+      ? supabase.from("programs").select("id, name").order("name")
+      : Promise.resolve({ data: [] as { id: number; name: string }[] }),
+    styleIds.length > 0
+      ? supabase
+          .from("style_stages")
+          .select("style_id, interpreted_yes")
+          .in("style_id", styleIds)
+      : Promise.resolve({
+          data: [] as { style_id: number; interpreted_yes: boolean | null }[],
+        }),
+  ]);
+  const stageCounts = new Map<number, { done: number; total: number }>();
+  for (const stage of (stageResult.data ?? []) as {
+    style_id: number;
+    interpreted_yes: boolean | null;
+  }[]) {
+    const current = stageCounts.get(stage.style_id) ?? { done: 0, total: 0 };
+    current.total += 1;
+    if (stage.interpreted_yes) current.done += 1;
+    stageCounts.set(stage.style_id, current);
+  }
+  const programs = (programsResult.data ?? []) as {
+    id: number;
+    name: string;
+  }[];
+  const history = historyResult.error
+    ? []
+    : ((historyResult.data ?? []) as {
+        id: number;
+        from_status: string | null;
+        to_status: string;
+        created_at: string;
+      }[]);
   const photos = await photosForMaterials(
     fabrics
       .map((line) => line.material_id)
@@ -151,6 +208,61 @@ async function OrderScreen({ params, searchParams }: PageProps) {
         Orders
       </Link>
       <h1 className="font-serif text-3xl text-ink">{typed.order_number}</h1>
+      <div>
+        <StatusPill
+          status={typed.production_status}
+          cancelled={typed.status === "cancelled"}
+        />
+        {typed.status === "cancelled" ? null : (
+          <ProductionSteps status={typed.production_status} />
+        )}
+        <p className="mt-2 text-sm text-muted">
+          Due {typed.fitting_target_raw ?? "not set"}
+        </p>
+      </div>
+      {canStatus && typed.status !== "cancelled" ? (
+        <form
+          action={updateProductionStatus}
+          className="flex flex-col gap-3 rounded-2xl border border-line bg-card p-4"
+        >
+          <input type="hidden" name="orderNumber" value={typed.order_number} />
+          <label className="text-sm font-medium" htmlFor="productionStatus">
+            Production status
+          </label>
+          <select
+            id="productionStatus"
+            name="productionStatus"
+            defaultValue={typed.production_status ?? "not_started"}
+            className="min-h-12 rounded-xl border border-line bg-card px-3 text-base"
+          >
+            {PRODUCTION_STATUSES.map((status) => (
+              <option key={status.value} value={status.value}>
+                {status.label}
+              </option>
+            ))}
+          </select>
+          <button
+            type="submit"
+            className="min-h-12 rounded-full bg-ink px-4 font-medium text-white"
+          >
+            Save status
+          </button>
+        </form>
+      ) : null}
+      {history.length > 0 ? (
+        <section className="flex flex-col gap-2">
+          <h2 className="font-serif text-2xl text-ink">Status history</h2>
+          <ul className="flex flex-col gap-2">
+            {history.map((event) => (
+              <li key={event.id} className="text-sm text-ink">
+                {productionStatusLabel(event.from_status)} to{" "}
+                {productionStatusLabel(event.to_status)} ·{" "}
+                {event.created_at.slice(0, 16).replace("T", " ")}
+              </li>
+            ))}
+          </ul>
+        </section>
+      ) : null}
       {notice ? (
         <StatusNote tone={notice.tone}>{notice.text}</StatusNote>
       ) : null}
@@ -192,6 +304,21 @@ async function OrderScreen({ params, searchParams }: PageProps) {
               </option>
             ))}
           </SelectField>
+          {programs.length > 0 ? (
+            <SelectField
+              id="programId"
+              name="programId"
+              label="Program"
+              defaultValue={typed.program_id ? String(typed.program_id) : ""}
+            >
+              <option value="">No program</option>
+              {programs.map((program) => (
+                <option key={program.id} value={program.id}>
+                  {program.name}
+                </option>
+              ))}
+            </SelectField>
+          ) : null}
           <TextField
             id="orderDate"
             name="orderDate"
@@ -302,15 +429,24 @@ async function OrderScreen({ params, searchParams }: PageProps) {
       </section>
       <section className="flex flex-col gap-2">
         <h2 className="font-serif text-2xl text-ink">Styles</h2>
-        {styles.map((style) => (
-          <Link
-            key={style.id}
-            href={`/styles/${style.id}`}
-            className="inline-flex min-h-12 items-center text-ink"
-          >
-            {style.garment_description ?? style.style_key}
-          </Link>
-        ))}
+        {styles.map((style) => {
+          const stages = stageCounts.get(style.id);
+          return (
+            <div key={style.id}>
+              <Link
+                href={`/styles/${style.id}`}
+                className="inline-flex min-h-12 items-center text-ink"
+              >
+                {style.garment_description ?? style.style_key}
+              </Link>
+              {stages ? (
+                <p className="text-sm text-muted">
+                  {stages.done} of {stages.total} stages marked done
+                </p>
+              ) : null}
+            </div>
+          );
+        })}
       </section>
       <section className="flex flex-col gap-3">
         <h2 className="font-serif text-2xl text-ink">Fittings</h2>

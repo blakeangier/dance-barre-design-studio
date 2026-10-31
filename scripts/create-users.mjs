@@ -18,6 +18,7 @@ const roles = new Set([
   "production_manager",
   "payroll_admin",
   "employee",
+  "program_director",
 ]);
 
 loadEnvFile(join(root, ".env.local"));
@@ -63,6 +64,7 @@ for (const person of people) {
   const appMetadata = {
     role: person.role,
     can_purchase: Boolean(person.canPurchase),
+    can_update_order_status: Boolean(person.canUpdateOrderStatus),
     full_name: person.fullName ?? "",
   };
   const found = existing.find((user) => user.email?.toLowerCase() === email);
@@ -150,6 +152,7 @@ async function upsertProfile(client, id, email, person) {
       full_name: person.fullName ?? "",
       role: person.role,
       can_purchase: Boolean(person.canPurchase),
+      can_update_order_status: Boolean(person.canUpdateOrderStatus),
     },
     { onConflict: "id" },
   );
