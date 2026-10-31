@@ -282,6 +282,18 @@ export function InventoryBrowser({
           {materials.length} materials. On hand and reserved come from the stock
           ledger.
         </p>
+        <Link
+          href="/inventory/use"
+          className="mt-4 inline-flex min-h-14 w-full items-center justify-center rounded-full bg-ink px-4 text-lg font-medium text-white sm:w-auto"
+        >
+          Log fabric use
+        </Link>
+        <Link
+          href="/inventory/usage"
+          className="mt-2 inline-flex min-h-12 items-center text-sm font-medium text-ink"
+        >
+          Usage log
+        </Link>
       </div>
       <div className="grid gap-3 rounded-2xl border border-line bg-card p-4">
         <div ref={boxRef} className="grid scroll-mt-4 gap-2">

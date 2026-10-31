@@ -56,6 +56,15 @@ async function HomeScreen({
           and costume orders are open. The other areas stay closed until their
           phase.
         </p>
+        <Link
+          href="/inventory/use"
+          className="mt-4 inline-flex min-h-14 w-full items-center justify-center rounded-full bg-ink px-4 text-lg font-medium text-white sm:w-auto"
+        >
+          Log fabric use
+        </Link>
+        <p className="mt-2 text-sm text-muted">
+          Subtract fabric you used for a sample or an order.
+        </p>
       </section>
       <section className="rounded-2xl border border-line bg-card p-5">
         <h2 className="font-serif text-2xl text-ink">Companies</h2>

@@ -19,6 +19,14 @@ export function thumbnailPath(storagePath: string): string {
   return storagePath.replace(/(\.[a-z0-9]+)$/i, "-thumb$1");
 }
 
+const USAGE_PHOTO = /^usage\/([0-9a-f-]{36})\/([0-9a-f-]{36})\.(webp|jpe?g)$/i;
+
+export function isUsagePhotoPath(userId: string, storagePath: string): boolean {
+  const match = USAGE_PHOTO.exec(storagePath);
+  if (!match?.[1] || !match[2]) return false;
+  return match[1].toLowerCase() === userId.toLowerCase();
+}
+
 export function isMaterialPhotoPath(
   materialId: number,
   storagePath: string,

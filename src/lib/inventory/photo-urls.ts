@@ -70,6 +70,35 @@ export type GalleryPhoto = {
   fullUrl: string;
 };
 
+export async function signedUsagePhotos(
+  paths: string[],
+): Promise<Map<string, MaterialPhotoLink>> {
+  const links = new Map<string, MaterialPhotoLink>();
+  const unique = [...new Set(paths.filter(Boolean))];
+  if (unique.length === 0) return links;
+  const supabase = await createClient();
+  const bucket = supabase.storage.from("material-photos");
+  const [fullSigned, thumbSigned] = await Promise.all([
+    bucket.createSignedUrls(unique, 60 * 60),
+    bucket.createSignedUrls(unique.map(thumbnailPath), 60 * 60),
+  ]);
+  const fullByPath = new Map(
+    (fullSigned.data ?? []).map((item) => [item.path, item.signedUrl]),
+  );
+  const thumbByPath = new Map(
+    (thumbSigned.data ?? []).map((item) => [item.path, item.signedUrl]),
+  );
+  for (const path of unique) {
+    const fullUrl = fullByPath.get(path);
+    if (!fullUrl) continue;
+    links.set(path, {
+      fullUrl,
+      thumbUrl: thumbByPath.get(thumbnailPath(path)) || fullUrl,
+    });
+  }
+  return links;
+}
+
 export async function galleryForMaterial(
   materialId: number,
 ): Promise<GalleryPhoto[]> {

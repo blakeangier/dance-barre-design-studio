@@ -4,6 +4,7 @@ import {
   PHOTO_MAX_EDGE,
   fitWithin,
   isMaterialPhotoPath,
+  isUsagePhotoPath,
   thumbnailPath,
 } from "./photos.ts";
 
@@ -32,5 +33,17 @@ describe("material photo files", () => {
     assert.equal(isMaterialPhotoPath(4, path), true);
     assert.equal(isMaterialPhotoPath(5, path), false);
     assert.equal(isMaterialPhotoPath(4, "4/../1/secret.webp"), false);
+  });
+
+  it("keeps a use photo under the person who logged it", () => {
+    const user = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee";
+    const path = `usage/${user}/11111111-2222-3333-4444-555555555555.webp`;
+    assert.equal(isUsagePhotoPath(user, path), true);
+    assert.equal(
+      isUsagePhotoPath("bbbbbbbb-bbbb-cccc-dddd-eeeeeeeeeeee", path),
+      false,
+    );
+    assert.equal(isUsagePhotoPath(user, `usage/${user}/../secret.webp`), false);
+    assert.equal(thumbnailPath(path), path.replace(".webp", "-thumb.webp"));
   });
 });

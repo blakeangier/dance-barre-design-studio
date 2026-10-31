@@ -27,9 +27,9 @@ type DetailProps = {
 
 const NOTICES: Record<string, string> = {
   saved: "Stock entry saved.",
-  denied: "You can log use only.",
+  denied: "Receive and adjust are for Elaine and the owners.",
   qty: "Enter a quantity in metres.",
-  type: "Choose receive, use, or adjust.",
+  type: "Choose receive or adjust.",
   failed: "That stock entry did not save.",
 };
 
@@ -245,59 +245,74 @@ async function MaterialScreen({ params, searchParams }: DetailProps) {
           cost={costResult.data}
         />
       ) : null}
-      <form
-        action={logStock.bind(null, material.material_code)}
-        className="flex flex-col gap-3 rounded-2xl border border-line bg-card p-4"
+      <Link
+        href={`/inventory/use?material=${encodeURIComponent(material.material_code)}`}
+        className="inline-flex min-h-14 items-center justify-center rounded-full bg-ink px-4 text-lg font-medium text-white"
       >
-        <h2 className="font-serif text-2xl text-ink">Log stock</h2>
-        <label className="text-sm font-medium" htmlFor="txnType">
-          Type
-        </label>
-        <select
-          id="txnType"
-          name="txnType"
-          className="min-h-12 rounded-xl border border-line bg-card px-3 text-base"
-          defaultValue="use"
+        Log fabric use
+      </Link>
+      {editor ? (
+        <form
+          action={logStock.bind(null, material.material_code)}
+          className="flex flex-col gap-3 rounded-2xl border border-line bg-card p-4"
         >
-          {editor ? <option value="receive">Receive</option> : null}
-          <option value="use">Use</option>
-          {editor ? <option value="adjust">Adjust</option> : null}
-        </select>
-        <label className="text-sm font-medium" htmlFor="qty">
-          Metres
-        </label>
-        <input
-          id="qty"
-          name="qty"
-          inputMode="decimal"
-          required
-          className="min-h-12 rounded-xl border border-line bg-card px-3 text-base"
-        />
-        <label className="text-sm font-medium" htmlFor="orderNumber">
-          Order number
-        </label>
-        <input
-          id="orderNumber"
-          name="orderNumber"
-          className="min-h-12 rounded-xl border border-line bg-card px-3 text-base"
-        />
-        <label className="text-sm font-medium" htmlFor="note">
-          Note
-        </label>
-        <textarea
-          id="note"
-          name="note"
-          className="min-h-24 rounded-xl border border-line bg-card px-3 py-2 text-base"
-        />
-        <button
-          type="submit"
-          className="min-h-12 rounded-full bg-ink px-4 font-medium text-white"
-        >
-          Save
-        </button>
-      </form>
+          <h2 className="font-serif text-2xl text-ink">Log stock</h2>
+          <label className="text-sm font-medium" htmlFor="txnType">
+            Type
+          </label>
+          <select
+            id="txnType"
+            name="txnType"
+            className="min-h-12 rounded-xl border border-line bg-card px-3 text-base"
+            defaultValue="receive"
+          >
+            <option value="receive">Receive</option>
+            <option value="adjust">Adjust</option>
+          </select>
+          <label className="text-sm font-medium" htmlFor="qty">
+            Metres
+          </label>
+          <input
+            id="qty"
+            name="qty"
+            inputMode="decimal"
+            required
+            className="min-h-12 rounded-xl border border-line bg-card px-3 text-base"
+          />
+          <label className="text-sm font-medium" htmlFor="orderNumber">
+            Order number
+          </label>
+          <input
+            id="orderNumber"
+            name="orderNumber"
+            className="min-h-12 rounded-xl border border-line bg-card px-3 text-base"
+          />
+          <label className="text-sm font-medium" htmlFor="note">
+            Note
+          </label>
+          <textarea
+            id="note"
+            name="note"
+            className="min-h-24 rounded-xl border border-line bg-card px-3 py-2 text-base"
+          />
+          <button
+            type="submit"
+            className="min-h-12 rounded-full bg-ink px-4 font-medium text-white"
+          >
+            Save
+          </button>
+        </form>
+      ) : null}
       <section>
-        <h2 className="font-serif text-2xl text-ink">History</h2>
+        <div className="flex items-center justify-between gap-3">
+          <h2 className="font-serif text-2xl text-ink">History</h2>
+          <Link
+            href={`/inventory/usage?material=${encodeURIComponent(material.material_code)}`}
+            className="inline-flex min-h-12 items-center text-sm text-ink"
+          >
+            Usage log
+          </Link>
+        </div>
         <ul className="mt-3 flex flex-col gap-3">
           {(historyResult.data ?? []).map((entry) => (
             <li
