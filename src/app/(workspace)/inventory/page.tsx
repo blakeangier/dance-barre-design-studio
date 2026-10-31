@@ -1,10 +1,13 @@
-import Link from "next/link";
 import { Suspense } from "react";
-import { StockBadge } from "@/components/inventory/stock-badge";
+import { InventoryBrowser } from "@/components/inventory/inventory-browser";
 import { LoadingLine } from "@/components/shell/loading-line";
 import { NoAccess } from "@/components/shell/no-access";
 import { gateArea } from "@/lib/auth/session";
 import { firstQueryValue } from "@/lib/auth/notices";
+import {
+  supplierSearchText,
+  type InventoryMaterial,
+} from "@/lib/inventory/search";
 import { createClient } from "@/lib/supabase/server";
 
 export const metadata = { title: "Inventory" };
@@ -12,6 +15,8 @@ export const metadata = { title: "Inventory" };
 type InventoryProps = {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 };
+
+type SupplierEmbed = { name: string | null } | null;
 
 type MaterialRow = {
   id: number;
@@ -22,15 +27,30 @@ type MaterialRow = {
   content: string | null;
   bin_location: string | null;
   needs_review: boolean;
+  supplier_as_written: string | null;
+  suppliers: SupplierEmbed | SupplierEmbed[];
 };
 
 type StockRow = {
   material_id: number;
-  on_hand_m: number | null;
-  reserved_m: number | null;
-  available_m: number | null;
+  on_hand_m: number | string | null;
+  reserved_m: number | string | null;
+  available_m: number | string | null;
   is_low_stock: boolean;
 };
+
+function asNumber(value: number | string | null | undefined): number | null {
+  if (value === null || value === undefined || value === "") return null;
+  const number = typeof value === "number" ? value : Number(value);
+  return Number.isFinite(number) ? number : null;
+}
+
+function linkedSupplierName(
+  suppliers: MaterialRow["suppliers"],
+): string | null {
+  const linked = Array.isArray(suppliers) ? suppliers[0] : suppliers;
+  return linked?.name ?? null;
+}
 
 export default function InventoryPage(props: InventoryProps) {
   return (
@@ -49,16 +69,12 @@ async function InventoryScreen({
   if (!gate.ok) return <NoAccess reason={gate.reason} />;
 
   const params = await searchParams;
-  const query = (firstQueryValue(params.q) ?? "").trim().toLowerCase();
-  const type = (firstQueryValue(params.type) ?? "").trim().toLowerCase();
-  const lowOnly = firstQueryValue(params.low) === "1";
-  const reviewOnly = firstQueryValue(params.review) === "1";
   const supabase = await createClient();
   const [materialsResult, stockResult] = await Promise.all([
     supabase
       .from("materials")
       .select(
-        "id, material_code, fabric_name, colour_name, fabric_type, content, bin_location, needs_review",
+        "id, material_code, fabric_name, colour_name, fabric_type, content, bin_location, needs_review, supplier_as_written, suppliers(name)",
       )
       .order("material_code"),
     supabase
@@ -72,133 +88,38 @@ async function InventoryScreen({
       row,
     ]),
   );
-  const materials = ((materialsResult.data ?? []) as MaterialRow[]).filter(
-    (material) => {
-      const levels = stock.get(material.id);
-      const haystack = [
-        material.material_code,
-        material.fabric_name,
-        material.colour_name,
-        material.content,
-        material.bin_location,
-      ]
-        .join(" ")
-        .toLowerCase();
-      if (query && !haystack.includes(query)) return false;
-      if (type) {
-        const kind =
-          `${material.fabric_type ?? ""} ${material.content ?? ""}`.toLowerCase();
-        if (!kind.includes(type)) return false;
-      }
-      if (lowOnly && !levels?.is_low_stock) return false;
-      if (reviewOnly && !material.needs_review) return false;
-      return true;
-    },
-  );
+  const items: InventoryMaterial[] = (
+    (materialsResult.data ?? []) as MaterialRow[]
+  ).map((material) => {
+    const levels = stock.get(material.id);
+    return {
+      id: material.id,
+      materialCode: material.material_code,
+      fabricName: material.fabric_name,
+      colourName: material.colour_name,
+      fabricType: material.fabric_type,
+      content: material.content,
+      supplierName: supplierSearchText(
+        linkedSupplierName(material.suppliers),
+        material.supplier_as_written,
+      ),
+      binLocation: material.bin_location,
+      needsReview: material.needs_review,
+      onHandM: asNumber(levels?.on_hand_m),
+      reservedM: asNumber(levels?.reserved_m),
+      availableM: asNumber(levels?.available_m),
+      isLowStock: levels?.is_low_stock ?? false,
+    };
+  });
 
   return (
-    <div className="flex flex-col gap-4">
-      <div>
-        <h1 className="font-serif text-3xl text-ink">Inventory</h1>
-        <p className="mt-2 text-sm text-muted">
-          {materials.length} materials. On hand and reserved come from the stock
-          ledger.
-        </p>
-      </div>
-      <form
-        className="grid gap-3 rounded-2xl border border-line bg-card p-4"
-        method="get"
-      >
-        <label className="text-sm font-medium" htmlFor="q">
-          Search
-        </label>
-        <input
-          id="q"
-          name="q"
-          defaultValue={firstQueryValue(params.q) ?? ""}
-          className="min-h-12 rounded-xl border border-line bg-card px-3 text-base"
-        />
-        <label className="text-sm font-medium" htmlFor="type">
-          Type or content
-        </label>
-        <input
-          id="type"
-          name="type"
-          defaultValue={firstQueryValue(params.type) ?? ""}
-          className="min-h-12 rounded-xl border border-line bg-card px-3 text-base"
-        />
-        <label className="flex min-h-11 items-center gap-2 text-sm">
-          <input
-            type="checkbox"
-            name="low"
-            value="1"
-            defaultChecked={lowOnly}
-          />
-          Low stock
-        </label>
-        <label className="flex min-h-11 items-center gap-2 text-sm">
-          <input
-            type="checkbox"
-            name="review"
-            value="1"
-            defaultChecked={reviewOnly}
-          />
-          Needs review
-        </label>
-        <button
-          type="submit"
-          className="min-h-12 rounded-full bg-ink px-4 font-medium text-white"
-        >
-          Apply
-        </button>
-      </form>
-      {materialsResult.error ? (
-        <p className="text-sm text-muted">The inventory list did not load.</p>
-      ) : (
-        <ul className="flex flex-col gap-3">
-          {materials.map((material) => {
-            const levels = stock.get(material.id);
-            return (
-              <li
-                key={material.id}
-                className="rounded-2xl border border-line bg-card p-4"
-              >
-                <Link
-                  href={`/inventory/${encodeURIComponent(material.material_code)}`}
-                  className="font-medium text-ink"
-                >
-                  {material.material_code}
-                </Link>
-                <p className="text-sm text-muted">
-                  {[
-                    material.fabric_name,
-                    material.colour_name,
-                    material.content,
-                  ]
-                    .filter(Boolean)
-                    .join(" · ")}
-                </p>
-                {material.bin_location ? (
-                  <p className="text-sm text-muted">
-                    Bin {material.bin_location}
-                  </p>
-                ) : null}
-                {material.needs_review ? (
-                  <p className="mt-1 text-xs font-medium text-ink">
-                    Needs review
-                  </p>
-                ) : null}
-                <StockBadge
-                  onHand={levels?.on_hand_m ?? null}
-                  reserved={levels?.reserved_m ?? null}
-                  available={levels?.available_m ?? null}
-                  low={levels?.is_low_stock ?? false}
-                />
-              </li>
-            );
-          })}
-        </ul>
-      )}
-    </div>
+    <InventoryBrowser
+      items={items}
+      loadError={Boolean(materialsResult.error)}
+      initialQuery={firstQueryValue(params.q) ?? ""}
+      initialType={firstQueryValue(params.type) ?? ""}
+      initialLow={firstQueryValue(params.low) === "1"}
+      initialReview={firstQueryValue(params.review) === "1"}
+    />
   );
 }
