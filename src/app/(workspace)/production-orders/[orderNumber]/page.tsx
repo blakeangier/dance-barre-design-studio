@@ -189,7 +189,7 @@ async function OrderScreen({ params, searchParams }: PageProps) {
   const programName =
     programs.find((program) => program.id === typed.program_id)?.name ?? null;
   const showStatusForm = canStatus && typed.status !== "cancelled";
-  const showProgramForm = canStatus && !editor && programs.length > 0;
+  const showProgramForm = canStatus && programs.length > 0;
   const history = historyResult.error
     ? []
     : ((historyResult.data ?? []) as {
@@ -218,9 +218,11 @@ async function OrderScreen({ params, searchParams }: PageProps) {
         {typed.status === "cancelled" ? null : (
           <ProductionSteps status={typed.production_status} />
         )}
-        <p className="mt-2 text-sm text-muted">
+        <p className="mt-2 text-sm text-ink">
+          Program {programsResult.error ? "—" : (programName ?? "Unassigned")}
+        </p>
+        <p className="text-sm text-muted">
           Due {typed.fitting_target_raw ?? "not set"}
-          {programName ? ` · ${programName}` : ""}
         </p>
       </div>
       {showStatusForm || showProgramForm ? (
@@ -259,7 +261,7 @@ async function OrderScreen({ params, searchParams }: PageProps) {
                 defaultValue={typed.program_id ? String(typed.program_id) : ""}
                 className="min-h-12 rounded-xl border border-line bg-card px-3 text-base"
               >
-                <option value="">No program</option>
+                <option value="">Unassigned</option>
                 {programs.map((program) => (
                   <option key={program.id} value={program.id}>
                     {program.name}
@@ -272,7 +274,7 @@ async function OrderScreen({ params, searchParams }: PageProps) {
             type="submit"
             className="min-h-12 rounded-full bg-ink px-4 font-medium text-white"
           >
-            {editor ? "Save status" : "Save"}
+            {showProgramForm ? "Save" : "Save status"}
           </button>
         </form>
       ) : null}
@@ -331,21 +333,6 @@ async function OrderScreen({ params, searchParams }: PageProps) {
               </option>
             ))}
           </SelectField>
-          {programs.length > 0 ? (
-            <SelectField
-              id="programId"
-              name="programId"
-              label="Program"
-              defaultValue={typed.program_id ? String(typed.program_id) : ""}
-            >
-              <option value="">No program</option>
-              {programs.map((program) => (
-                <option key={program.id} value={program.id}>
-                  {program.name}
-                </option>
-              ))}
-            </SelectField>
-          ) : null}
           <TextField
             id="orderDate"
             name="orderDate"

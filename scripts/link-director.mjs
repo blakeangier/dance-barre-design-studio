@@ -7,7 +7,8 @@
 //     --name "Malika Mowinski-Waters" \
 //     --program "Elite Company"
 //
-// Programs seeded by the migration: Elite Company, CREW, Petite Elite.
+// Programs: Elite Company, CREW, Petite Elite, Recreational.
+// Recreational has no director yet.
 // A director with no link sees no orders. An order with no program is
 // hidden from every director. Running this again with a different --program
 // moves her to that program.

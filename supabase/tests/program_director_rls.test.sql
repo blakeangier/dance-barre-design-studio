@@ -7,7 +7,7 @@ create extension if not exists pgtap with schema extensions;
 grant usage on schema extensions to authenticated, anon;
 set search_path to public, extensions;
 
-select plan(20);
+select plan(21);
 
 insert into auth.users (
   instance_id, id, aud, role, email, raw_app_meta_data, raw_user_meta_data,
@@ -102,6 +102,12 @@ begin
   perform set_config('request.jwt.claim.sub', user_id::text, true);
 end;
 $$;
+
+select is(
+  (select count(*)::int from public.programs where name = 'Recreational'),
+  1,
+  'Recreational is a program with no director of its own'
+);
 
 reset role;
 select tests.claims('00000000-0000-0000-0000-0000000000e1');

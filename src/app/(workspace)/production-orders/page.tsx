@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { Suspense } from "react";
+import { OrderTabs } from "@/components/orders/order-tabs";
 import {
   ProductionSteps,
   StatusPill,
@@ -28,6 +29,8 @@ type OrderRow = {
   order_date: string | null;
   production_status: string | null;
   fitting_target_raw: string | null;
+  program_id: number | null;
+  programs: { name: string } | { name: string }[] | null;
 };
 
 type PrivateRow = {
@@ -58,11 +61,20 @@ async function OrdersScreen({
   const params = await searchParams;
   const showArchived = firstQueryValue(params.archived) === "1";
   const statusFilter = firstQueryValue(params.status) ?? "";
+  const programFilter = firstQueryValue(params.program) ?? "";
   const supabase = await createClient();
+  const programsResult = await supabase
+    .from("programs")
+    .select("id, name")
+    .order("name");
+  const programs = (programsResult.data ?? []) as {
+    id: number;
+    name: string;
+  }[];
   let ordersQuery = supabase
     .from("costume_orders")
     .select(
-      "id, order_number, production_song, status, status_raw, order_date, production_status, fitting_target_raw",
+      "id, order_number, production_song, status, status_raw, order_date, production_status, fitting_target_raw, program_id, programs(name)",
     )
     .order("order_number");
   if (!showArchived) ordersQuery = ordersQuery.is("archived_at", null);
@@ -72,6 +84,11 @@ async function OrdersScreen({
     ordersQuery = ordersQuery
       .eq("production_status", statusFilter)
       .is("status", null);
+  }
+  if (programFilter === "none") {
+    ordersQuery = ordersQuery.is("program_id", null);
+  } else if (/^\d+$/.test(programFilter)) {
+    ordersQuery = ordersQuery.eq("program_id", Number(programFilter));
   }
   const ordersResult = await ordersQuery;
   const privateResult = canSeePrivateRecords(gate.profile)
@@ -95,6 +112,7 @@ async function OrdersScreen({
         showArchived={showArchived}
         canCreate={canEditInventory(gate.profile)}
       />
+      <OrderTabs current="orders" />
       {ordersResult.error ? (
         <p className="text-sm text-muted">
           Production status appears after its migration is applied.
@@ -104,6 +122,23 @@ async function OrdersScreen({
           {showArchived ? (
             <input type="hidden" name="archived" value="1" />
           ) : null}
+          <label className="text-sm font-medium" htmlFor="program">
+            Program
+          </label>
+          <select
+            id="program"
+            name="program"
+            defaultValue={programFilter}
+            className="min-h-12 rounded-xl border border-line bg-card px-3 text-base"
+          >
+            <option value="">All programs</option>
+            <option value="none">Unassigned</option>
+            {programs.map((program) => (
+              <option key={program.id} value={program.id}>
+                {program.name}
+              </option>
+            ))}
+          </select>
           <label className="text-sm font-medium" htmlFor="status">
             Production status
           </label>
@@ -154,7 +189,10 @@ async function OrdersScreen({
                   <ProductionSteps status={order.production_status} />
                 )}
               </div>
-              <p className="mt-2 text-sm text-muted">
+              <p className="mt-2 text-sm text-ink">
+                Program {programLabel(order)}
+              </p>
+              <p className="text-sm text-muted">
                 {cancelled
                   ? `Cancelled (${order.status_raw ?? "cancelled"})`
                   : `Due ${order.fitting_target_raw ?? "not set"}`}
@@ -171,4 +209,11 @@ async function OrdersScreen({
       </ul>
     </div>
   );
+}
+
+function programLabel(order: OrderRow): string {
+  const linked = Array.isArray(order.programs)
+    ? order.programs[0]
+    : order.programs;
+  return linked?.name ?? "Unassigned";
 }

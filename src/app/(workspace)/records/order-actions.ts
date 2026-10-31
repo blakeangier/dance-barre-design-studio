@@ -36,6 +36,30 @@ function problem(
   return error.code === "23505" ? "duplicate" : "failed";
 }
 
+export async function assignOrdersToProgram(formData: FormData) {
+  const state = await getSessionState();
+  if (state.status !== "ready") redirect("/login");
+  if (!canUpdateOrderStatus(state.profile)) {
+    redirect("/production-orders/programs?notice=denied");
+  }
+  const ids = formData
+    .getAll("orderId")
+    .map((value) => Number(value))
+    .filter((value) => Number.isInteger(value) && value > 0);
+  if (ids.length === 0) redirect("/production-orders/programs?notice=choose");
+  const programText = String(formData.get("programId") ?? "").trim();
+  if (programText && !/^\d+$/.test(programText)) {
+    redirect("/production-orders/programs?notice=failed");
+  }
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("costume_orders")
+    .update({ program_id: programText ? Number(programText) : null })
+    .in("id", ids);
+  if (error) redirect("/production-orders/programs?notice=failed");
+  redirect("/production-orders/programs?notice=saved");
+}
+
 export async function updateProductionStatus(formData: FormData) {
   const state = await getSessionState();
   if (state.status !== "ready") redirect("/login");
@@ -94,7 +118,10 @@ export async function saveOrder(formData: FormData) {
   const female = take(back, optionalNumber(formData.get("femaleTotal")));
   const male = take(back, optionalNumber(formData.get("maleTotal")));
   const notes = take(back, optionalText(formData.get("notes"), 2000));
-  const programId = take(back, optionalId(formData.get("programId")));
+  const includeProgram = formData.has("programId");
+  const programId = includeProgram
+    ? take(back, optionalId(formData.get("programId")))
+    : null;
   const keepArchived = String(formData.get("archivedAt") ?? "").trim();
   const archivedAt = checked(formData.get("archive"))
     ? keepArchived || new Date().toISOString()
@@ -114,8 +141,8 @@ export async function saveOrder(formData: FormData) {
     female_total: female,
     male_total: male,
     notes,
-    program_id: programId,
     archived_at: archivedAt,
+    ...(includeProgram ? { program_id: programId } : {}),
   };
   let orderId = id;
   if (orderId) {
