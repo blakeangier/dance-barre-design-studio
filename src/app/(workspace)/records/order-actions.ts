@@ -43,11 +43,25 @@ export async function updateProductionStatus(formData: FormData) {
   const back = `/production-orders/${encodeURIComponent(orderNumber)}`;
   if (!canUpdateOrderStatus(state.profile)) redirect(`${back}?notice=denied`);
   const next = String(formData.get("productionStatus") ?? "");
-  if (!isProductionStatus(next)) redirect(`${back}?notice=status`);
+  const patch: { production_status?: string; program_id?: number | null } = {};
+  if (formData.has("productionStatus")) {
+    if (!isProductionStatus(next)) redirect(`${back}?notice=status`);
+    patch.production_status = next;
+  }
+  if (formData.has("programId")) {
+    const programText = String(formData.get("programId") ?? "").trim();
+    if (programText && !/^\d+$/.test(programText)) {
+      redirect(`${back}?notice=failed`);
+    }
+    patch.program_id = programText ? Number(programText) : null;
+  }
+  if (!patch.production_status && !formData.has("programId")) {
+    redirect(`${back}?notice=status`);
+  }
   const supabase = await createClient();
   const { error } = await supabase
     .from("costume_orders")
-    .update({ production_status: next })
+    .update(patch)
     .eq("order_number", orderNumber);
   if (error) redirect(`${back}?notice=failed`);
   redirect(`${back}?notice=record-saved`);

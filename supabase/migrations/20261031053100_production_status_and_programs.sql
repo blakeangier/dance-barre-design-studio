@@ -1,7 +1,7 @@
 -- Production status, who may change it, and a view-only program director.
 -- Cancelled stays on costume_orders.status. production_status is the shop step.
--- A director with no program links sees every order. Links limit them to those
--- programs. This file does not create Jialin Liao. An owner sets
+-- Program scope is tightened in 20261031054000_director_scope_required.sql:
+-- a director with no links sees no orders. This file does not create Jialin Liao. An owner sets
 -- can_update_order_status on her account after she can sign in.
 
 create or replace function private.parse_role(value text)

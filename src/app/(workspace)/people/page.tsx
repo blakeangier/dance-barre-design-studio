@@ -267,8 +267,8 @@ async function PeopleScreen({
                         Programs this director can see
                       </legend>
                       <p className="text-sm text-muted">
-                        Leave these unchecked and a program director sees every
-                        order. Checked programs limit that person.
+                        A program director sees only the programs checked here.
+                        With none checked, she sees no orders.
                       </p>
                       {programs.map((program) => (
                         <label

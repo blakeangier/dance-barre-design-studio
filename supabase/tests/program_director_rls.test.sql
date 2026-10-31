@@ -7,7 +7,7 @@ create extension if not exists pgtap with schema extensions;
 grant usage on schema extensions to authenticated, anon;
 set search_path to public, extensions;
 
-select plan(17);
+select plan(20);
 
 insert into auth.users (
   instance_id, id, aud, role, email, raw_app_meta_data, raw_user_meta_data,
@@ -55,6 +55,9 @@ from public.programs where name = 'Elite Company';
 insert into public.costume_orders (order_number, production_song, program_id)
 select 'DIR-B', 'SAMPLE crew', id
 from public.programs where name = 'CREW';
+
+insert into public.costume_orders (order_number, production_song)
+values ('DIR-NONE', 'SAMPLE no program');
 
 insert into public.styles (style_key, garment_description, order_id)
 select 'DIR-STYLE-A', 'SAMPLE elite skirt', id
@@ -115,6 +118,11 @@ select is(
   'a scoped director cannot see another program'
 );
 select is(
+  (select count(*)::int from public.costume_orders where order_number = 'DIR-NONE'),
+  0,
+  'an order with no program is hidden from directors'
+);
+select is(
   (select count(*)::int from public.styles where style_key = 'DIR-STYLE-B'),
   0,
   'a scoped director cannot see another program style'
@@ -158,6 +166,15 @@ select throws_ok(
 );
 
 select throws_ok(
+  $$update public.costume_orders
+    set program_id = (select id from public.programs where name = 'CREW')
+    where order_number = 'DIR-A'$$,
+  '42501',
+  null,
+  'a director cannot change an order program'
+);
+
+select throws_ok(
   $$insert into public.stock_transactions (txn_code, txn_type, material_id, qty_m, created_by, usage_kind, style_id)
     select 'DIR-USE', 'use', m.id, 1, '00000000-0000-0000-0000-0000000000e1', 'sample', s.id
     from public.materials m
@@ -173,9 +190,13 @@ select tests.claims('00000000-0000-0000-0000-0000000000e2');
 set role authenticated;
 
 select is(
-  (select count(*)::int from public.costume_orders where order_number in ('DIR-A', 'DIR-B')),
-  2,
-  'a director with no program links sees every order'
+  (
+    select count(*)::int
+    from public.costume_orders
+    where order_number in ('DIR-A', 'DIR-B', 'DIR-NONE')
+  ),
+  0,
+  'a director with no program links sees no orders'
 );
 
 reset role;
@@ -194,8 +215,20 @@ select tests.claims('00000000-0000-0000-0000-0000000000e4');
 set role authenticated;
 
 update public.costume_orders
-set production_status = 'cutting'
+set production_status = 'cutting',
+    program_id = (select id from public.programs where name = 'CREW')
 where order_number = 'DIR-A';
+
+select is(
+  (
+    select g.name
+    from public.costume_orders costume_order
+    join public.programs g on g.id = costume_order.program_id
+    where costume_order.order_number = 'DIR-A'
+  ),
+  'CREW',
+  'a flagged employee can set the order program'
+);
 
 select is(
   (

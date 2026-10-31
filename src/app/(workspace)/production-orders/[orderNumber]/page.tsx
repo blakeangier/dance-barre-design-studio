@@ -162,9 +162,7 @@ async function OrderScreen({ params, searchParams }: PageProps) {
       .select("id, from_status, to_status, created_at")
       .eq("order_id", typed.id)
       .order("created_at", { ascending: false }),
-    editor
-      ? supabase.from("programs").select("id, name").order("name")
-      : Promise.resolve({ data: [] as { id: number; name: string }[] }),
+    supabase.from("programs").select("id, name").order("name"),
     styleIds.length > 0
       ? supabase
           .from("style_stages")
@@ -188,6 +186,10 @@ async function OrderScreen({ params, searchParams }: PageProps) {
     id: number;
     name: string;
   }[];
+  const programName =
+    programs.find((program) => program.id === typed.program_id)?.name ?? null;
+  const showStatusForm = canStatus && typed.status !== "cancelled";
+  const showProgramForm = canStatus && !editor && programs.length > 0;
   const history = historyResult.error
     ? []
     : ((historyResult.data ?? []) as {
@@ -218,34 +220,59 @@ async function OrderScreen({ params, searchParams }: PageProps) {
         )}
         <p className="mt-2 text-sm text-muted">
           Due {typed.fitting_target_raw ?? "not set"}
+          {programName ? ` · ${programName}` : ""}
         </p>
       </div>
-      {canStatus && typed.status !== "cancelled" ? (
+      {showStatusForm || showProgramForm ? (
         <form
           action={updateProductionStatus}
           className="flex flex-col gap-3 rounded-2xl border border-line bg-card p-4"
         >
           <input type="hidden" name="orderNumber" value={typed.order_number} />
-          <label className="text-sm font-medium" htmlFor="productionStatus">
-            Production status
-          </label>
-          <select
-            id="productionStatus"
-            name="productionStatus"
-            defaultValue={typed.production_status ?? "not_started"}
-            className="min-h-12 rounded-xl border border-line bg-card px-3 text-base"
-          >
-            {PRODUCTION_STATUSES.map((status) => (
-              <option key={status.value} value={status.value}>
-                {status.label}
-              </option>
-            ))}
-          </select>
+          {showStatusForm ? (
+            <>
+              <label className="text-sm font-medium" htmlFor="productionStatus">
+                Production status
+              </label>
+              <select
+                id="productionStatus"
+                name="productionStatus"
+                defaultValue={typed.production_status ?? "not_started"}
+                className="min-h-12 rounded-xl border border-line bg-card px-3 text-base"
+              >
+                {PRODUCTION_STATUSES.map((status) => (
+                  <option key={status.value} value={status.value}>
+                    {status.label}
+                  </option>
+                ))}
+              </select>
+            </>
+          ) : null}
+          {showProgramForm ? (
+            <>
+              <label className="text-sm font-medium" htmlFor="programId">
+                Program
+              </label>
+              <select
+                id="programId"
+                name="programId"
+                defaultValue={typed.program_id ? String(typed.program_id) : ""}
+                className="min-h-12 rounded-xl border border-line bg-card px-3 text-base"
+              >
+                <option value="">No program</option>
+                {programs.map((program) => (
+                  <option key={program.id} value={program.id}>
+                    {program.name}
+                  </option>
+                ))}
+              </select>
+            </>
+          ) : null}
           <button
             type="submit"
             className="min-h-12 rounded-full bg-ink px-4 font-medium text-white"
           >
-            Save status
+            {editor ? "Save status" : "Save"}
           </button>
         </form>
       ) : null}

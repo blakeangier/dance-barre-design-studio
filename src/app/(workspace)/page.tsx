@@ -188,7 +188,10 @@ async function DirectorOrders() {
           Orders appear after the production status migration is applied.
         </p>
       ) : orders.length === 0 ? (
-        <p className="text-sm text-muted">No orders in your programs.</p>
+        <p className="text-sm text-muted">
+          No orders yet. A director only sees orders in a program she is linked
+          to.
+        </p>
       ) : (
         <ul className="flex flex-col gap-3">
           {orders.map((order) => {
