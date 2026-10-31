@@ -1,6 +1,10 @@
 import { Suspense } from "react";
 import {
+  archiveContractorContract,
+  archiveContractorPayment,
   archivePayrollActual,
+  saveContractorContract,
+  saveContractorPayment,
   savePayrollActual,
 } from "@/app/(workspace)/finances/actions";
 import { ownerGate } from "@/app/(workspace)/finances/guard";
@@ -12,9 +16,11 @@ import { firstQueryValue } from "@/lib/auth/notices";
 import { money } from "@/lib/inventory/format";
 import { todayInToronto } from "@/lib/inventory/usage";
 import {
+  contractProgress,
   employeeGross,
   monthlyAmount,
   rateOn,
+  recurringCoveredByContract,
   type Frequency,
 } from "@/lib/finances/money";
 import { includeInPayrollExport } from "@/lib/payroll/export-csv";
@@ -65,7 +71,14 @@ async function Payroll({ searchParams }: PageProps) {
     (settingsResult.data as { rounding_minutes: number } | null)
       ?.rounding_minutes ?? 0;
   const period = payPeriodContaining(anchor, today);
-  const [actualsResult, contractorsResult, sheetsResult] = await Promise.all([
+  const [
+    actualsResult,
+    contractorsResult,
+    sheetsResult,
+    peopleResult,
+    contractResult,
+    paymentResult,
+  ] = await Promise.all([
     supabase
       .from("payroll_actuals")
       .select(
@@ -76,7 +89,7 @@ async function Payroll({ searchParams }: PageProps) {
     supabase
       .from("recurring_costs")
       .select(
-        "id, name, amount_cad, hst_cad, frequency, finance_categories!inner(name)",
+        "id, name, amount_cad, hst_cad, frequency, contractor_profile_id, finance_categories!inner(name)",
       )
       .is("archived_at", null)
       .eq("finance_categories.name", "Contractors"),
@@ -84,6 +97,24 @@ async function Payroll({ searchParams }: PageProps) {
       .from("timesheets")
       .select("id, profile_id, period_start, period_end, status")
       .in("status", ["approved", "sent", "processed"]),
+    supabase
+      .from("profiles")
+      .select("id, full_name")
+      .eq("employment_type", "contractor")
+      .eq("is_active", true)
+      .order("full_name"),
+    supabase
+      .from("contractor_contracts")
+      .select(
+        "id, contractor_id, total_amount_cad, hst_amount_cad, start_date, end_date, payout, notes",
+      )
+      .is("archived_at", null)
+      .order("start_date"),
+    supabase
+      .from("contractor_payments")
+      .select("id, contract_id, paid_on, amount_cad, hst_cad, notes")
+      .is("archived_at", null)
+      .order("paid_on", { ascending: false, nullsFirst: true }),
   ]);
   const actuals = (actualsResult.data ?? []) as Actual[];
   const sums = summarize(actuals, period, month, year);
@@ -134,7 +165,18 @@ async function Payroll({ searchParams }: PageProps) {
         <li>Payroll to date CPP {money(sums.all.cpp)}</li>
         <li>Payroll to date EI {money(sums.all.ei)}</li>
       </ul>
-      <h2 className="font-serif text-2xl text-ink">Contractors</h2>
+      <h2 className="font-serif text-2xl text-ink">Contractor contracts</h2>
+      <ContractList
+        today={today}
+        people={
+          (peopleResult.data ?? []) as { id: string; full_name: string }[]
+        }
+        contracts={(contractResult.data ?? []) as ContractRow[]}
+        payments={(paymentResult.data ?? []) as PaymentRow[]}
+      />
+      <h2 className="font-serif text-2xl text-ink">
+        Recurring contractor lines
+      </h2>
       <ul className="flex flex-col gap-2 text-sm">
         {(
           (contractorsResult.data ?? []) as {
@@ -143,6 +185,7 @@ async function Payroll({ searchParams }: PageProps) {
             amount_cad: number | string;
             hst_cad: number | string;
             frequency: Frequency;
+            contractor_profile_id: string | null;
           }[]
         ).map((row) => (
           <li key={row.id}>
@@ -150,6 +193,16 @@ async function Payroll({ searchParams }: PageProps) {
             {money(Number(row.hst_cad))} ·{" "}
             {money(monthlyAmount(Number(row.amount_cad), row.frequency))} a
             month
+            {recurringCoveredByContract(
+              row.contractor_profile_id,
+              new Set(
+                (
+                  (contractResult.data ?? []) as { contractor_id: string }[]
+                ).map((contract) => contract.contractor_id),
+              ),
+            )
+              ? " · left out of the projection while the contract is open"
+              : ""}
           </li>
         ))}
       </ul>
@@ -371,4 +424,228 @@ async function grossFromTimesheets(
     month: employeeGross(lines.month),
     year: employeeGross(lines.year),
   };
+}
+
+type ContractRow = {
+  id: number;
+  contractor_id: string;
+  total_amount_cad: number | string;
+  hst_amount_cad: number | string;
+  start_date: string;
+  end_date: string;
+  payout: "spread" | "lump_sums";
+  notes: string | null;
+};
+
+type PaymentRow = {
+  id: number;
+  contract_id: number;
+  paid_on: string | null;
+  amount_cad: number | string;
+  hst_cad: number | string;
+  notes: string | null;
+};
+
+function ContractList({
+  today,
+  people,
+  contracts,
+  payments,
+}: {
+  today: string;
+  people: { id: string; full_name: string }[];
+  contracts: ContractRow[];
+  payments: PaymentRow[];
+}) {
+  const names = new Map(people.map((person) => [person.id, person.full_name]));
+  return (
+    <div className="flex flex-col gap-3">
+      {contracts.map((contract) => {
+        const rows = payments.filter(
+          (payment) => payment.contract_id === contract.id,
+        );
+        const progress = contractProgress(
+          Number(contract.total_amount_cad),
+          Number(contract.hst_amount_cad),
+          rows.map((payment) => ({
+            paidOn: payment.paid_on,
+            amount: Number(payment.amount_cad),
+            hst: Number(payment.hst_cad),
+          })),
+          today,
+        );
+        return (
+          <article
+            key={contract.id}
+            className="rounded-2xl border border-line bg-card p-4 text-sm"
+          >
+            <p className="font-medium text-ink">
+              {names.get(contract.contractor_id) ?? "Contractor"} ·{" "}
+              {contract.start_date} to {contract.end_date}
+            </p>
+            <p>
+              {money(Number(contract.total_amount_cad))} pre-tax · HST{" "}
+              {money(Number(contract.hst_amount_cad))}
+            </p>
+            <p>
+              Paid {money(progress.paid)} · Remaining{" "}
+              {money(progress.remaining)} · {progress.percent}% paid
+            </p>
+            <p className="text-muted">
+              {contract.payout === "lump_sums"
+                ? "Future payments stay on their dates."
+                : "The remaining balance is spread over production days left in the contract."}
+            </p>
+            {contract.notes ? <p>{contract.notes}</p> : null}
+            <ul className="mt-2 flex flex-col gap-1">
+              {rows.map((payment) => (
+                <li
+                  key={payment.id}
+                  className="flex items-center justify-between gap-2"
+                >
+                  <span>
+                    {payment.paid_on ?? "Date unknown"} ·{" "}
+                    {money(Number(payment.amount_cad))} pre-tax · HST{" "}
+                    {money(Number(payment.hst_cad))}
+                    {payment.paid_on && payment.paid_on > today
+                      ? " · scheduled"
+                      : ""}
+                    {payment.notes ? ` · ${payment.notes}` : ""}
+                  </span>
+                  <form action={archiveContractorPayment}>
+                    <input type="hidden" name="id" value={payment.id} />
+                    <button type="submit" className="min-h-11 font-medium">
+                      Archive
+                    </button>
+                  </form>
+                </li>
+              ))}
+            </ul>
+            <form action={archiveContractorContract} className="mt-2">
+              <input type="hidden" name="id" value={contract.id} />
+              <button type="submit" className="min-h-11 font-medium">
+                Archive contract
+              </button>
+            </form>
+          </article>
+        );
+      })}
+      <form
+        action={saveContractorContract}
+        className="flex flex-col gap-2 rounded-2xl border border-line bg-card p-4"
+      >
+        <h3 className="font-serif text-2xl">Add a contract</h3>
+        <select
+          name="contractorId"
+          required
+          className="min-h-12 rounded-xl border border-line px-3"
+        >
+          {people.map((person) => (
+            <option key={person.id} value={person.id}>
+              {person.full_name}
+            </option>
+          ))}
+        </select>
+        <input
+          name="totalAmount"
+          required
+          inputMode="decimal"
+          placeholder="Contract total, pre-tax"
+          className="min-h-12 rounded-xl border border-line px-3"
+        />
+        <input
+          name="hstAmount"
+          inputMode="decimal"
+          placeholder="HST"
+          className="min-h-12 rounded-xl border border-line px-3"
+        />
+        <input
+          name="startDate"
+          type="date"
+          required
+          className="min-h-12 rounded-xl border border-line px-3"
+        />
+        <input
+          name="endDate"
+          type="date"
+          required
+          className="min-h-12 rounded-xl border border-line px-3"
+        />
+        <select
+          name="payout"
+          defaultValue="spread"
+          className="min-h-12 rounded-xl border border-line px-3"
+        >
+          <option value="spread">Spread the remaining balance</option>
+          <option value="lump_sums">Use scheduled lump sums</option>
+        </select>
+        <textarea
+          name="notes"
+          placeholder="Notes"
+          className="min-h-20 rounded-xl border border-line px-3 py-2"
+        />
+        <button
+          type="submit"
+          className="min-h-12 rounded-full bg-ink px-4 font-medium text-white"
+        >
+          Save contract
+        </button>
+      </form>
+      <form
+        action={saveContractorPayment}
+        className="flex flex-col gap-2 rounded-2xl border border-line bg-card p-4"
+      >
+        <h3 className="font-serif text-2xl">Add a payment</h3>
+        <select
+          name="contractId"
+          required
+          className="min-h-12 rounded-xl border border-line px-3"
+        >
+          {contracts.map((contract) => (
+            <option key={contract.id} value={contract.id}>
+              {names.get(contract.contractor_id) ?? "Contract"} ·{" "}
+              {contract.start_date}
+            </option>
+          ))}
+        </select>
+        <input
+          name="paidOn"
+          type="date"
+          className="min-h-12 rounded-xl border border-line px-3"
+        />
+        <label className="flex min-h-11 items-center gap-2 text-sm">
+          <input type="checkbox" name="dateUnknown" />
+          Date unknown
+        </label>
+        <p className="text-sm text-muted">
+          A future date is a scheduled lump sum. Leave it blank, or tick Date
+          unknown, for a payment already made.
+        </p>
+        <input
+          name="amount"
+          required
+          inputMode="decimal"
+          placeholder="Amount, pre-tax"
+          className="min-h-12 rounded-xl border border-line px-3"
+        />
+        <input
+          name="hst"
+          inputMode="decimal"
+          placeholder="HST"
+          className="min-h-12 rounded-xl border border-line px-3"
+        />
+        <textarea
+          name="notes"
+          placeholder="Notes"
+          className="min-h-20 rounded-xl border border-line px-3 py-2"
+        />
+        <button
+          type="submit"
+          className="min-h-12 rounded-full border border-ink px-4 text-sm font-medium"
+        >
+          Save payment
+        </button>
+      </form>
+    </div>
+  );
 }

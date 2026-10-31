@@ -41,31 +41,42 @@ async function Running({ searchParams }: PageProps) {
   const notice = firstQueryValue((await searchParams).notice);
   const today = todayInToronto();
   const supabase = await createClient();
-  const [categoriesResult, rowsResult, seasonsResult, settingsResult] =
-    await Promise.all([
-      supabase
-        .from("finance_categories")
-        .select("id, name")
-        .is("archived_at", null)
-        .order("sort_order"),
-      supabase
-        .from("recurring_costs")
-        .select(
-          "id, name, amount_cad, hst_cad, frequency, runs, start_date, end_date, notes, finance_categories(name)",
-        )
-        .is("archived_at", null)
-        .order("name"),
-      supabase
-        .from("production_seasons")
-        .select("id, name, start_date, end_date")
-        .is("archived_at", null)
-        .order("start_date"),
-      supabase
-        .from("finance_run_settings")
-        .select("payroll_runs, variable_spend_runs")
-        .eq("id", true)
-        .maybeSingle(),
-    ]);
+  const [
+    categoriesResult,
+    rowsResult,
+    seasonsResult,
+    settingsResult,
+    peopleResult,
+  ] = await Promise.all([
+    supabase
+      .from("finance_categories")
+      .select("id, name")
+      .is("archived_at", null)
+      .order("sort_order"),
+    supabase
+      .from("recurring_costs")
+      .select(
+        "id, name, amount_cad, hst_cad, frequency, runs, start_date, end_date, notes, finance_categories(name)",
+      )
+      .is("archived_at", null)
+      .order("name"),
+    supabase
+      .from("production_seasons")
+      .select("id, name, start_date, end_date")
+      .is("archived_at", null)
+      .order("start_date"),
+    supabase
+      .from("finance_run_settings")
+      .select("payroll_runs, variable_spend_runs")
+      .eq("id", true)
+      .maybeSingle(),
+    supabase
+      .from("profiles")
+      .select("id, full_name")
+      .eq("employment_type", "contractor")
+      .eq("is_active", true)
+      .order("full_name"),
+  ]);
   const categories = (categoriesResult.data ?? []) as {
     id: number;
     name: string;
@@ -250,6 +261,24 @@ async function Running({ searchParams }: PageProps) {
           <option value="yearly">Yearly</option>
           <option value="bi-weekly">Bi-weekly</option>
           <option value="per_pay_period">Per pay period</option>
+        </select>
+        <label className="text-sm font-medium" htmlFor="contractorId">
+          Contractor, if this line is their retainer
+        </label>
+        <select
+          id="contractorId"
+          name="contractorId"
+          className="min-h-12 rounded-xl border border-line px-3"
+          defaultValue=""
+        >
+          <option value="">Not linked</option>
+          {(
+            (peopleResult.data ?? []) as { id: string; full_name: string }[]
+          ).map((person) => (
+            <option key={person.id} value={person.id}>
+              {person.full_name}
+            </option>
+          ))}
         </select>
         <label className="text-sm font-medium" htmlFor="runs">
           Runs

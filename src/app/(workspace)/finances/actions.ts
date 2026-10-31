@@ -94,6 +94,7 @@ export async function saveRecurringCost(formData: FormData) {
       text(formData.get("runs")) === "production_only"
         ? "production_only"
         : "year_round",
+    contractor_profile_id: text(formData.get("contractorId")) || null,
   };
   const id = text(formData.get("id"));
   const supabase = await createClient();
@@ -198,6 +199,81 @@ export async function archivePayrollActual(formData: FormData) {
     await createClient()
   )
     .from("payroll_actuals")
+    .update({ archived_at: new Date().toISOString() })
+    .eq("id", Number(text(formData.get("id"))));
+  if (error) redirect("/finances/payroll?notice=failed");
+  redirect("/finances/payroll?notice=saved");
+}
+
+export async function saveContractorContract(formData: FormData) {
+  await ownerOrRedirect("/finances/payroll");
+  const back = "/finances/payroll";
+  const total = money(text(formData.get("totalAmount")));
+  const contractorId = text(formData.get("contractorId"));
+  const startDate = text(formData.get("startDate"));
+  const endDate = text(formData.get("endDate"));
+  if (total === null || !contractorId || !startDate || !endDate) {
+    redirect(`${back}?notice=failed`);
+  }
+  const payout =
+    text(formData.get("payout")) === "lump_sums" ? "lump_sums" : "spread";
+  const { error } = await (
+    await createClient()
+  )
+    .from("contractor_contracts")
+    .insert({
+      contractor_id: contractorId,
+      total_amount_cad: total,
+      hst_amount_cad: money(text(formData.get("hstAmount"))) ?? 0,
+      start_date: startDate,
+      end_date: endDate,
+      payout,
+      notes: text(formData.get("notes")) || null,
+    });
+  if (error) redirect(`${back}?notice=failed`);
+  redirect(`${back}?notice=saved`);
+}
+
+export async function archiveContractorContract(formData: FormData) {
+  await ownerOrRedirect("/finances/payroll");
+  const { error } = await (
+    await createClient()
+  )
+    .from("contractor_contracts")
+    .update({ archived_at: new Date().toISOString() })
+    .eq("id", Number(text(formData.get("id"))));
+  if (error) redirect("/finances/payroll?notice=failed");
+  redirect("/finances/payroll?notice=saved");
+}
+
+export async function saveContractorPayment(formData: FormData) {
+  await ownerOrRedirect("/finances/payroll");
+  const back = "/finances/payroll";
+  const amount = money(text(formData.get("amount")));
+  const contractId = Number(text(formData.get("contractId")));
+  if (amount === null || !contractId) redirect(`${back}?notice=failed`);
+  const dateUnknown = formData.get("dateUnknown") === "on";
+  const { error } = await (
+    await createClient()
+  )
+    .from("contractor_payments")
+    .insert({
+      contract_id: contractId,
+      paid_on: dateUnknown ? null : text(formData.get("paidOn")) || null,
+      amount_cad: amount,
+      hst_cad: money(text(formData.get("hst"))) ?? 0,
+      notes: text(formData.get("notes")) || null,
+    });
+  if (error) redirect(`${back}?notice=failed`);
+  redirect(`${back}?notice=saved`);
+}
+
+export async function archiveContractorPayment(formData: FormData) {
+  await ownerOrRedirect("/finances/payroll");
+  const { error } = await (
+    await createClient()
+  )
+    .from("contractor_payments")
     .update({ archived_at: new Date().toISOString() })
     .eq("id", Number(text(formData.get("id"))));
   if (error) redirect("/finances/payroll?notice=failed");

@@ -10,8 +10,10 @@ import {
   monthlyAmount,
   monthlyCategorySpend,
   parseCardCsv,
+  contractProgress,
   productionDaysInMonth,
   projectRunningYear,
+  recurringCoveredByContract,
   startupSummary,
   recurringMonthly,
   variableMonthly,
@@ -216,6 +218,81 @@ describe("production seasons", () => {
       projection.seasonPretax + projection.offSeasonPretax,
     );
     assert.ok(projection.offSeasonPretax > projection.seasonPretax);
+  });
+
+  it("spreads a SAMPLE contract's remaining balance over production days, or uses future lump sums", () => {
+    const progress = contractProgress(
+      100,
+      13,
+      [
+        { paidOn: null, amount: 25, hst: 3.25 },
+        { paidOn: "2026-11-01", amount: 40, hst: 0 },
+      ],
+      "2026-10-15",
+    );
+    assert.equal(progress.paid, 25);
+    assert.equal(progress.remaining, 75);
+    assert.equal(progress.percent, 25);
+    const spread = projectRunningYear({
+      today: "2026-10-01",
+      recurring: [
+        {
+          monthlyPretax: 200,
+          monthlyHst: 0,
+          runs: "year_round",
+          category: "Contractors",
+        },
+      ],
+      payrollMonthly: 0,
+      payrollRuns: "production_only",
+      variableMonthly: 0,
+      variableHstMonthly: 0,
+      variableRuns: "production_only",
+      seasons: [{ start: "2026-10-01", end: "2026-10-10" }],
+      contracts: [
+        {
+          start: "2026-10-01",
+          end: "2026-10-31",
+          payout: "spread",
+          remainingPretax: 100,
+          remainingHst: 13,
+          futurePayments: [],
+        },
+      ],
+    });
+    assert.equal(spread.costPerProductionMonth, 200);
+    assert.equal(spread.months[0]?.pretax, 300);
+    assert.equal(spread.months[1]?.pretax, 200);
+    const lumps = projectRunningYear({
+      today: "2026-10-01",
+      recurring: [],
+      payrollMonthly: 0,
+      payrollRuns: "production_only",
+      variableMonthly: 0,
+      variableHstMonthly: 0,
+      variableRuns: "production_only",
+      seasons: [{ start: "2026-10-01", end: "2026-10-10" }],
+      contracts: [
+        {
+          start: "2026-10-01",
+          end: "2026-12-31",
+          payout: "lump_sums",
+          remainingPretax: 100,
+          remainingHst: 0,
+          futurePayments: [{ date: "2026-11-02", pretax: 40, hst: 0 }],
+        },
+      ],
+    });
+    assert.equal(lumps.months[0]?.pretax, 0);
+    assert.equal(lumps.months[1]?.pretax, 40);
+    assert.equal(
+      recurringCoveredByContract("contractor-a", new Set(["contractor-a"])),
+      true,
+    );
+    assert.equal(
+      recurringCoveredByContract(null, new Set(["contractor-a"])),
+      false,
+    );
   });
 });
 

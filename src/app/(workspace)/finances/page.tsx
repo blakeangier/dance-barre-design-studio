@@ -7,9 +7,11 @@ import { money } from "@/lib/inventory/format";
 import { todayInToronto } from "@/lib/inventory/usage";
 import {
   averageMonthlyPayroll,
+  contractProgress,
   monthlyAmount,
   monthlyCategorySpend,
   projectRunningYear,
+  recurringCoveredByContract,
   startupSummary,
   variableMonthly,
   type RunMode,
@@ -48,6 +50,8 @@ async function Overview() {
     payrollResult,
     seasonResult,
     settingsResult,
+    contractResult,
+    paymentResult,
   ] = await Promise.all([
     supabase
       .from("startup_costs")
@@ -58,7 +62,7 @@ async function Overview() {
     supabase
       .from("recurring_costs")
       .select(
-        "amount_cad, hst_cad, frequency, runs, start_date, end_date, finance_categories(name, excludes_from_totals)",
+        "amount_cad, hst_cad, frequency, runs, contractor_profile_id, start_date, end_date, finance_categories(name, excludes_from_totals)",
       )
       .is("archived_at", null),
     supabase
@@ -82,6 +86,16 @@ async function Overview() {
       .select("payroll_runs, variable_spend_runs")
       .eq("id", true)
       .maybeSingle(),
+    supabase
+      .from("contractor_contracts")
+      .select(
+        "id, contractor_id, total_amount_cad, hst_amount_cad, start_date, end_date, payout",
+      )
+      .is("archived_at", null),
+    supabase
+      .from("contractor_payments")
+      .select("contract_id, paid_on, amount_cad, hst_cad")
+      .is("archived_at", null),
   ]);
   const startup = (startupResult.data ?? []) as {
     occurred_on: string | null;
@@ -96,6 +110,7 @@ async function Overview() {
       hst_cad: number | string;
       frequency: Frequency;
       runs: RunMode | null;
+      contractor_profile_id: string | null;
       start_date: string;
       end_date: string | null;
       finance_categories: CategoryLink | CategoryLink[] | null;
@@ -104,7 +119,15 @@ async function Overview() {
     (row) =>
       row.start_date <= today &&
       (row.end_date === null || row.end_date >= today) &&
-      !categoryOf(row.finance_categories)?.excludes_from_totals,
+      !categoryOf(row.finance_categories)?.excludes_from_totals &&
+      !recurringCoveredByContract(
+        row.contractor_profile_id,
+        new Set(
+          ((contractResult.data ?? []) as { contractor_id: string }[]).map(
+            (contract) => contract.contractor_id,
+          ),
+        ),
+      ),
   );
   const cards = (cardResult.data ?? []) as {
     transaction_date: string;
@@ -196,6 +219,53 @@ async function Overview() {
     seasons: (
       (seasonResult.data ?? []) as { start_date: string; end_date: string }[]
     ).map((season) => ({ start: season.start_date, end: season.end_date })),
+    contracts: (
+      (contractResult.data ?? []) as {
+        id: number;
+        total_amount_cad: number | string;
+        hst_amount_cad: number | string;
+        start_date: string;
+        end_date: string;
+        payout: "spread" | "lump_sums";
+      }[]
+    ).map((contract) => {
+      const payments = (
+        (paymentResult.data ?? []) as {
+          contract_id: number;
+          paid_on: string | null;
+          amount_cad: number | string;
+          hst_cad: number | string;
+        }[]
+      ).filter((payment) => payment.contract_id === contract.id);
+      const progress = contractProgress(
+        Number(contract.total_amount_cad),
+        Number(contract.hst_amount_cad),
+        payments.map((payment) => ({
+          paidOn: payment.paid_on,
+          amount: Number(payment.amount_cad),
+          hst: Number(payment.hst_cad),
+        })),
+        today,
+      );
+      return {
+        start: contract.start_date,
+        end: contract.end_date,
+        payout: contract.payout,
+        remainingPretax: progress.remaining,
+        remainingHst: progress.remainingHst,
+        futurePayments: payments.flatMap((payment) =>
+          payment.paid_on && payment.paid_on > today
+            ? [
+                {
+                  date: payment.paid_on,
+                  pretax: Number(payment.amount_cad),
+                  hst: Number(payment.hst_cad),
+                },
+              ]
+            : [],
+        ),
+      };
+    }),
   });
   const chart = monthlyCategorySpend([
     ...startup.flatMap((row) => {

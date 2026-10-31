@@ -180,6 +180,7 @@ export function projectRunningYear(input: {
   variableHstMonthly: number;
   variableRuns: RunMode;
   seasons: readonly SeasonSpan[];
+  contracts?: readonly ContractProjection[];
 }): {
   costPerProductionMonth: number;
   costPerProductionMonthHst: number;
@@ -225,14 +226,25 @@ export function projectRunningYear(input: {
 
   let seasonPretax = 0;
   let offSeasonPretax = 0;
+  const contractCash = contractCashByMonth({
+    today: input.today,
+    seasons: input.seasons,
+    contracts: input.contracts ?? [],
+  });
   const months = upcomingMonths(input.today).map(({ year, month, label }) => {
     const days = daysInMonth(year, month);
     const productionDays = productionDaysInMonth(year, month, input.seasons);
     const fraction = days === 0 ? 0 : productionDays / days;
-    const pretax = cents(yearRound + production * fraction);
-    const hst = cents(yearRoundHst + productionHst * fraction);
-    seasonPretax += (yearRound + production) * fraction;
-    offSeasonPretax += yearRound * (1 - fraction);
+    const extra = contractCash.get(label) ?? {
+      pretax: 0,
+      hst: 0,
+      seasonPretax: 0,
+    };
+    const pretax = cents(yearRound + production * fraction + extra.pretax);
+    const hst = cents(yearRoundHst + productionHst * fraction + extra.hst);
+    seasonPretax += (yearRound + production) * fraction + extra.seasonPretax;
+    offSeasonPretax +=
+      yearRound * (1 - fraction) + (extra.pretax - extra.seasonPretax);
     return { month: label, pretax, hst, productionDays, days };
   });
   const season = cents(seasonPretax);
@@ -245,6 +257,146 @@ export function projectRunningYear(input: {
     seasonPretax: season,
     offSeasonPretax: offSeason,
   };
+}
+
+export type ContractPayout = "spread" | "lump_sums";
+
+export type ContractProjection = {
+  start: string;
+  end: string;
+  payout: ContractPayout;
+  remainingPretax: number;
+  remainingHst: number;
+  futurePayments: readonly { date: string; pretax: number; hst: number }[];
+};
+
+export function contractProgress(
+  total: number,
+  totalHst: number,
+  payments: readonly { paidOn: string | null; amount: number; hst: number }[],
+  today: string,
+): {
+  paid: number;
+  paidHst: number;
+  remaining: number;
+  remainingHst: number;
+  percent: number;
+} {
+  let paid = 0;
+  let paidHst = 0;
+  for (const payment of payments) {
+    if (payment.paidOn !== null && payment.paidOn > today) continue;
+    paid += payment.amount;
+    paidHst += payment.hst;
+  }
+  const remaining = cents(total - paid);
+  const remainingHst = cents(totalHst - paidHst);
+  return {
+    paid: cents(paid),
+    paidHst: cents(paidHst),
+    remaining,
+    remainingHst,
+    percent: total === 0 ? 0 : Math.round((paid / total) * 1000) / 10,
+  };
+}
+
+export function recurringCoveredByContract(
+  contractorId: string | null,
+  contractorIdsWithContracts: ReadonlySet<string>,
+): boolean {
+  return contractorId !== null && contractorIdsWithContracts.has(contractorId);
+}
+
+function isProductionDay(
+  isoDate: string,
+  seasons: readonly SeasonSpan[],
+): boolean {
+  return seasons.some(
+    (season) => isoDate >= season.start && isoDate <= season.end,
+  );
+}
+
+export function productionDaysBetween(
+  start: string,
+  end: string,
+  seasons: readonly SeasonSpan[],
+): number {
+  if (start > end) return 0;
+  let count = 0;
+  let cursor = start;
+  while (cursor <= end) {
+    if (isProductionDay(cursor, seasons)) count += 1;
+    cursor = shiftDays(cursor, 1);
+  }
+  return count;
+}
+
+function laterDate(left: string, right: string): string {
+  return left > right ? left : right;
+}
+
+function earlierDate(left: string, right: string): string {
+  return left < right ? left : right;
+}
+
+function contractCashByMonth(input: {
+  today: string;
+  seasons: readonly SeasonSpan[];
+  contracts: readonly ContractProjection[];
+}): Map<string, { pretax: number; hst: number; seasonPretax: number }> {
+  const months = new Map<
+    string,
+    { pretax: number; hst: number; seasonPretax: number }
+  >();
+  const add = (
+    month: string,
+    pretax: number,
+    hst: number,
+    inSeason: boolean,
+  ) => {
+    const current = months.get(month) ?? { pretax: 0, hst: 0, seasonPretax: 0 };
+    current.pretax += pretax;
+    current.hst += hst;
+    if (inSeason) current.seasonPretax += pretax;
+    months.set(month, current);
+  };
+  const window = upcomingMonths(input.today);
+  for (const contract of input.contracts) {
+    if (contract.payout === "lump_sums") {
+      for (const payment of contract.futurePayments) {
+        const month = payment.date.slice(0, 7);
+        if (!window.some((item) => item.label === month)) continue;
+        add(
+          month,
+          payment.pretax,
+          payment.hst,
+          isProductionDay(payment.date, input.seasons),
+        );
+      }
+      continue;
+    }
+    const from = laterDate(input.today, contract.start);
+    const to = contract.end;
+    const days = productionDaysBetween(from, to, input.seasons);
+    if (days === 0) continue;
+    const perDay = contract.remainingPretax / days;
+    const hstPerDay = contract.remainingHst / days;
+    for (const item of window) {
+      const last = daysInMonth(item.year, item.month);
+      const monthStart = `${item.label}-01`;
+      const monthEnd = `${item.label}-${String(last).padStart(2, "0")}`;
+      const sliceStart = laterDate(monthStart, from);
+      const sliceEnd = earlierDate(monthEnd, to);
+      const sliceDays = productionDaysBetween(
+        sliceStart,
+        sliceEnd,
+        input.seasons,
+      );
+      if (sliceDays === 0) continue;
+      add(item.label, perDay * sliceDays, hstPerDay * sliceDays, true);
+    }
+  }
+  return months;
 }
 
 export function averageMonthlyPayroll(
