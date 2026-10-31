@@ -6,6 +6,8 @@ import {
   areasFor,
   canAccessArea,
   canRecordPurchase,
+  canOpenTaskBoard,
+  canSuperviseTasks,
   canUpdateOrderStatus,
   canSeeCosts,
   canSeePrivateRecords,
@@ -127,6 +129,17 @@ describe("role areas", () => {
     assert.equal(canSeeCosts(director), false);
     assert.equal(canSeePrivateRecords(director), false);
     assert.equal(canUpdateOrderStatus(director), false);
+    assert.equal(canSuperviseTasks(profiles.employee), false);
+    assert.equal(
+      canSuperviseTasks({
+        role: "employee",
+        canPurchase: false,
+        canUpdateOrderStatus: true,
+      }),
+      true,
+    );
+    assert.equal(canOpenTaskBoard(profiles.owner), true);
+    assert.equal(canOpenTaskBoard(profiles.employee), false);
     assert.equal(canUpdateOrderStatus(profiles.employee), false);
     assert.equal(
       canUpdateOrderStatus({

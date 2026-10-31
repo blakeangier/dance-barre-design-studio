@@ -20,6 +20,13 @@ export function thumbnailPath(storagePath: string): string {
 }
 
 const USAGE_PHOTO = /^usage\/([0-9a-f-]{36})\/([0-9a-f-]{36})\.(webp|jpe?g)$/i;
+const TASK_PHOTO = /^tasks\/([0-9a-f-]{36})\/([0-9a-f-]{36})\.(webp|jpe?g)$/i;
+
+export function isTaskPhotoPath(userId: string, storagePath: string): boolean {
+  const match = TASK_PHOTO.exec(storagePath);
+  if (!match?.[1] || !match[2]) return false;
+  return match[1].toLowerCase() === userId.toLowerCase();
+}
 
 export function isUsagePhotoPath(userId: string, storagePath: string): boolean {
   const match = USAGE_PHOTO.exec(storagePath);

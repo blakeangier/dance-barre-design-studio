@@ -22,6 +22,7 @@ import { LoadingLine } from "@/components/shell/loading-line";
 import { NoAccess } from "@/components/shell/no-access";
 import { StatusNote } from "@/components/shell/status-note";
 import {
+  canAccessArea,
   canEditInventory,
   canSeePrivateRecords,
   canUpdateOrderStatus,
@@ -29,6 +30,8 @@ import {
 import { firstQueryValue } from "@/lib/auth/notices";
 import { gateArea } from "@/lib/auth/session";
 import { photosForMaterials } from "@/lib/inventory/photo-urls";
+import { todayInToronto } from "@/lib/inventory/usage";
+import { isOverdue, taskStatusLabel } from "@/lib/tasks/tasks";
 import {
   PRODUCTION_STATUSES,
   productionStatusLabel,
@@ -119,6 +122,15 @@ async function OrderScreen({ params, searchParams }: PageProps) {
     );
   }
   const typed = order as OrderRow;
+  const showTasks = canAccessArea(gate.profile, "tasks");
+  const taskResult = showTasks
+    ? await supabase
+        .from("tasks")
+        .select(
+          "id, title, status, due_on, assignee:profiles!tasks_assigned_to_fkey(full_name)",
+        )
+        .eq("order_id", typed.id)
+    : { data: [] };
   const [privateResult, stylesResult, fittingsResult, bomResult] =
     await Promise.all([
       canPrivate
@@ -233,6 +245,44 @@ async function OrderScreen({ params, searchParams }: PageProps) {
           Fittings and alterations
         </Link>
       </nav>
+      {showTasks ? (
+        <section className="flex flex-col gap-2">
+          <div className="flex items-center justify-between gap-3">
+            <h2 className="font-serif text-2xl text-ink">Tasks</h2>
+            <Link
+              href={`/tasks/new?order=${typed.id}`}
+              className="text-sm font-medium text-ink"
+            >
+              Add a task
+            </Link>
+          </div>
+          {(
+            (taskResult.data ?? []) as {
+              id: number;
+              title: string;
+              status: string;
+              due_on: string | null;
+              assignee: { full_name: string } | { full_name: string }[] | null;
+            }[]
+          ).map((task) => {
+            const assignee = Array.isArray(task.assignee)
+              ? task.assignee[0]
+              : task.assignee;
+            const today = todayInToronto();
+            return (
+              <Link
+                key={task.id}
+                href={`/tasks/${task.id}`}
+                className="text-sm text-ink"
+              >
+                {task.title} · {assignee?.full_name ?? "Unassigned"} ·{" "}
+                {taskStatusLabel(task.status)}
+                {isOverdue(task.due_on, task.status, today) ? " · Overdue" : ""}
+              </Link>
+            );
+          })}
+        </section>
+      ) : null}
       <div>
         <StatusPill
           status={typed.production_status}

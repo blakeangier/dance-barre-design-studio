@@ -197,6 +197,14 @@ export function canEditInventory(profile: AccessProfile): boolean {
   return profile.role === "owner" || profile.role === "production_manager";
 }
 
+export function canSuperviseTasks(profile: AccessProfile): boolean {
+  return canUpdateOrderStatus(profile);
+}
+
+export function canOpenTaskBoard(profile: AccessProfile): boolean {
+  return profile.role === "owner" || profile.role === "production_manager";
+}
+
 export function canUpdateOrderStatus(profile: AccessProfile): boolean {
   if (profile.role === "program_director") return false;
   return (
