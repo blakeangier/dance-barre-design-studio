@@ -6,7 +6,7 @@ The shop is small (about eight people on the floor, about two thousand costumes 
 
 ## What is in this version
 
-- Sign-in with email and password. A magic-link option is on the same page for later, once email sending is connected.
+- Sign-in with email and password. A magic-link option is on the same page for later, once email sending is connected. Any signed-in person can change their own password from My account in the header. The form asks for the current password again. There is no reset email yet.
 - No public sign-up. An owner creates each account.
 - Four roles: owner, production manager, payroll, and employee. The menu only shows areas that role may open. The database enforces the same split, so hiding a button is not the lock.
 - Purchasing is a switch on a person, not a fifth role. Lindsay (an owner) and Elaine (the production manager) both buy outside costumes and dancewear, so they have the switch.

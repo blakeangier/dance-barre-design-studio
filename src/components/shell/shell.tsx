@@ -4,6 +4,7 @@ import { ROLE_BADGE } from "@/lib/brand";
 import { signOut } from "@/app/login/actions";
 import { getSessionState } from "@/lib/auth/session";
 import { BrandLogo } from "@/components/brand/brand-logo";
+import { AccountLink } from "@/components/shell/account-link";
 import { AppNav } from "@/components/shell/app-nav";
 import { NoAccess } from "@/components/shell/no-access";
 
@@ -34,14 +35,14 @@ export async function Shell({ children }: { children: React.ReactNode }) {
         Skip to content
       </a>
       <header className="border-b border-line bg-card">
-        <div className="mx-auto flex max-w-6xl items-center justify-between gap-3 px-4 py-3">
+        <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-3 px-4 py-3">
           <div className="flex items-center gap-3">
             <BrandLogo className="h-12 w-auto sm:h-14" />
             <p className="hidden text-sm font-medium text-muted sm:block">
               Design Studio
             </p>
           </div>
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 sm:gap-3">
             <p className="hidden text-right text-sm sm:block">
               <span className="block leading-tight">
                 {state.profile.fullName}
@@ -59,6 +60,7 @@ export async function Shell({ children }: { children: React.ReactNode }) {
                 ) : null}
               </span>
             </p>
+            <AccountLink />
             <form action={signOut}>
               <button
                 type="submit"
