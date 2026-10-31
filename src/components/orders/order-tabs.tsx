@@ -3,7 +3,7 @@ import Link from "next/link";
 export function OrderTabs({
   current,
 }: {
-  current: "orders" | "programs" | "calendar";
+  current: "orders" | "programs" | "calendar" | "sizes";
 }) {
   const item = (href: string, label: string, active: boolean) => (
     <Link
@@ -22,6 +22,7 @@ export function OrderTabs({
       {item("/production-orders", "Orders", current === "orders")}
       {item("/production-orders/programs", "Programs", current === "programs")}
       {item("/production-orders/calendar", "Calendar", current === "calendar")}
+      {item("/production-orders/sizes", "Sizes", current === "sizes")}
     </nav>
   );
 }

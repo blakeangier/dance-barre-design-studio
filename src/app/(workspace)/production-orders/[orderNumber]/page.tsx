@@ -6,6 +6,7 @@ import {
   updateProductionStatus,
 } from "@/app/(workspace)/records/order-actions";
 import { saveOrderDates } from "@/app/(workspace)/records/production-actions";
+import { SizeGrid } from "@/components/orders/size-grid";
 import {
   AreaField,
   CheckField,
@@ -245,6 +246,12 @@ async function OrderScreen({ params, searchParams }: PageProps) {
           Fittings and alterations
         </Link>
       </nav>
+      <SizeGrid
+        orderId={typed.id}
+        orderNumber={typed.order_number}
+        canEdit={canStatus}
+        canEditScale={editor}
+      />
       {showTasks ? (
         <section className="flex flex-col gap-2">
           <div className="flex items-center justify-between gap-3">

@@ -146,7 +146,14 @@ export async function saveStyle(formData: FormData) {
     if (error) bail(back, "failed");
   }
 
-  for (const sizeCode of SIZE_CODES) {
+  const sizeCodes = [
+    ...new Set(
+      [...formData.keys()]
+        .filter((key) => key.startsWith("size_"))
+        .map((key) => key.slice("size_".length)),
+    ),
+  ];
+  for (const sizeCode of sizeCodes.length > 0 ? sizeCodes : SIZE_CODES) {
     const qty = take(back, optionalNumber(formData.get(`size_${sizeCode}`)));
     if (qty !== null && !Number.isInteger(qty)) bail(back, "number");
     const existing = String(formData.get(`sizeId_${sizeCode}`) ?? "").trim();

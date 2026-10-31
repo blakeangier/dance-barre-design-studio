@@ -12,6 +12,7 @@ import { firstQueryValue } from "@/lib/auth/notices";
 import { gateArea } from "@/lib/auth/session";
 import { metres } from "@/lib/inventory/format";
 import { SIZE_CODES } from "@/lib/records/edit";
+import { countsForStyle } from "@/lib/orders/size-grid";
 import { fabricNeeded, shortageMetres } from "@/lib/production/fabric-need";
 import { orderFabricPosition } from "@/lib/inventory/usage";
 import { createClient } from "@/lib/supabase/server";
@@ -51,13 +52,13 @@ async function FabricScreen({ params, searchParams }: PageProps) {
       supabase
         .from("bom_lines")
         .select(
-          "id, line_code, component, fabric_name, material_id, consumption_per_unit_m, waste_percent, is_estimate, flag",
+          "id, line_code, style_id, component, fabric_name, material_id, consumption_per_unit_m, waste_percent, is_estimate, flag",
         )
         .eq("order_id", order.id)
         .is("archived_at", null),
       supabase
         .from("order_sizes")
-        .select("size_code, qty")
+        .select("style_id, size_code, qty")
         .eq("order_id", order.id),
       supabase.from("material_availability").select("material_id, available_m"),
       supabase
@@ -72,10 +73,27 @@ async function FabricScreen({ params, searchParams }: PageProps) {
     .select("bom_line_id, size_code, metres_per_piece")
     .is("archived_at", null);
   const counts = (
-    (sizesResult.data ?? []) as { size_code: string; qty: number | null }[]
+    (sizesResult.data ?? []) as {
+      style_id: number | null;
+      size_code: string;
+      qty: number | null;
+    }[]
   )
     .filter((row) => row.qty)
-    .map((row) => ({ sizeCode: row.size_code, count: row.qty ?? 0 }));
+    .map((row) => ({
+      styleId: row.style_id,
+      sizeCode: row.size_code,
+      count: row.qty ?? 0,
+    }));
+  const scaleResult = await supabase
+    .from("size_scale")
+    .select("size_code")
+    .is("archived_at", null)
+    .order("sort_order");
+  const sizeCodes = ((scaleResult.data ?? []) as { size_code: string }[]).map(
+    (size) => size.size_code,
+  );
+  const sizeChoices = sizeCodes.length > 0 ? sizeCodes : [...SIZE_CODES];
   const pieces = (sizeQtyResult.data ?? []) as {
     bom_line_id: number;
     size_code: string;
@@ -94,6 +112,7 @@ async function FabricScreen({ params, searchParams }: PageProps) {
     line_code: string;
     component: string | null;
     fabric_name: string | null;
+    style_id: number | null;
     material_id: number | null;
     consumption_per_unit_m: number | string | null;
     waste_percent: number | string | null;
@@ -127,7 +146,7 @@ async function FabricScreen({ params, searchParams }: PageProps) {
                 sizeCode: piece.size_code,
                 metresPerPiece: Number(piece.metres_per_piece),
               })),
-            sizeCounts: counts,
+            sizeCounts: countsForStyle(counts, line.style_id),
             wastePercent:
               line.waste_percent === null ? null : Number(line.waste_percent),
             estimateMetresPerPiece:
@@ -234,7 +253,7 @@ async function FabricScreen({ params, searchParams }: PageProps) {
                     name="sizeCode"
                     className="min-h-12 rounded-xl border border-line bg-card px-3"
                   >
-                    {SIZE_CODES.map((code) => (
+                    {sizeChoices.map((code) => (
                       <option key={code} value={code}>
                         {code}
                       </option>
