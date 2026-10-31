@@ -1,6 +1,12 @@
 import Link from "next/link";
 import { Suspense } from "react";
 import { logStock } from "@/app/(workspace)/inventory/actions";
+import {
+  archivePhoto,
+  setPrimaryPhoto,
+} from "@/app/(workspace)/inventory/photo-actions";
+import { AddPhoto } from "@/components/inventory/add-photo";
+import { PhotoThumb } from "@/components/inventory/photo-thumb";
 import { StockBadge } from "@/components/inventory/stock-badge";
 import { MaterialForm } from "@/components/records/material-form";
 import { LoadingLine } from "@/components/shell/loading-line";
@@ -10,6 +16,7 @@ import { canEditInventory, canSeeCosts } from "@/lib/auth/permissions";
 import { gateArea } from "@/lib/auth/session";
 import { firstQueryValue, noticeText } from "@/lib/auth/notices";
 import { metres, money } from "@/lib/inventory/format";
+import { galleryForMaterial } from "@/lib/inventory/photo-urls";
 import { EDIT_NOTICES } from "@/lib/records/edit";
 import { createClient } from "@/lib/supabase/server";
 
@@ -71,6 +78,8 @@ async function MaterialScreen({ params, searchParams }: DetailProps) {
   }
 
   const editor = canEditInventory(gate.profile);
+  const gallery = await galleryForMaterial(material.id);
+  const primary = gallery.find((photo) => photo.isPrimary) ?? gallery[0];
   const [stockResult, historyResult, costResult, suppliersResult] =
     await Promise.all([
       supabase
@@ -104,46 +113,124 @@ async function MaterialScreen({ params, searchParams }: DetailProps) {
         <Link href="/inventory" className="text-sm text-muted">
           Inventory
         </Link>
-        <h1 className="mt-1 font-serif text-3xl text-ink">
-          {material.material_code}
-        </h1>
-        <p className="mt-1 text-sm text-muted">
-          {[material.fabric_name, material.colour_name, material.content]
-            .filter(Boolean)
-            .join(" · ")}
-        </p>
-        <p className="text-sm text-muted">
-          {[
-            material.supplier_as_written,
-            material.bin_location ? `Bin ${material.bin_location}` : null,
-            material.width_cm ? `${material.width_cm} cm` : null,
-          ]
-            .filter(Boolean)
-            .join(" · ")}
-        </p>
-        {material.needs_review ? (
-          <p className="mt-2 text-sm text-ink">
-            {material.needs_review_reason}
-          </p>
-        ) : null}
-        {material.registry_stock_raw ? (
-          <p className="mt-1 text-sm text-muted">
-            Registry stock text: {material.registry_stock_raw}
-          </p>
-        ) : null}
-        <StockBadge
-          onHand={stockResult.data?.on_hand_m ?? null}
-          reserved={stockResult.data?.reserved_m ?? null}
-          available={stockResult.data?.available_m ?? null}
-          low={stockResult.data?.is_low_stock ?? false}
-        />
-        {costResult.data ? (
-          <p className="mt-2 text-sm text-muted">
-            List {money(costResult.data.list_price_per_m)} / m · Net{" "}
-            {money(costResult.data.net_price_per_m)} / m
-          </p>
-        ) : null}
+        <div className="mt-1 flex items-start gap-3">
+          <PhotoThumb
+            thumbUrl={primary?.thumbUrl ?? null}
+            fullUrl={primary?.fullUrl ?? null}
+            label={material.material_code}
+          />
+          <div>
+            <h1 className="font-serif text-3xl text-ink">
+              {material.material_code}
+            </h1>
+            <p className="mt-1 text-sm text-muted">
+              {[material.fabric_name, material.colour_name, material.content]
+                .filter(Boolean)
+                .join(" · ")}
+            </p>
+            <p className="text-sm text-muted">
+              {[
+                material.supplier_as_written,
+                material.bin_location ? `Bin ${material.bin_location}` : null,
+                material.width_cm ? `${material.width_cm} cm` : null,
+              ]
+                .filter(Boolean)
+                .join(" · ")}
+            </p>
+            {material.needs_review ? (
+              <p className="mt-2 text-sm text-ink">
+                {material.needs_review_reason}
+              </p>
+            ) : null}
+            {material.registry_stock_raw ? (
+              <p className="mt-1 text-sm text-muted">
+                Registry stock text: {material.registry_stock_raw}
+              </p>
+            ) : null}
+            <StockBadge
+              onHand={stockResult.data?.on_hand_m ?? null}
+              reserved={stockResult.data?.reserved_m ?? null}
+              available={stockResult.data?.available_m ?? null}
+              low={stockResult.data?.is_low_stock ?? false}
+            />
+            {costResult.data ? (
+              <p className="mt-2 text-sm text-muted">
+                List {money(costResult.data.list_price_per_m)} / m · Net{" "}
+                {money(costResult.data.net_price_per_m)} / m
+              </p>
+            ) : null}
+          </div>
+        </div>
       </div>
+      <section className="flex flex-col gap-3">
+        <h2 className="font-serif text-2xl text-ink">Photos</h2>
+        {gallery.length === 0 ? (
+          <p className="text-sm text-muted">No photo yet.</p>
+        ) : (
+          <ul className="flex flex-col gap-3">
+            {gallery.map((photo) => (
+              <li
+                key={photo.id}
+                className="flex items-start gap-3 rounded-2xl border border-line bg-card p-3"
+              >
+                <PhotoThumb
+                  thumbUrl={photo.thumbUrl}
+                  fullUrl={photo.fullUrl}
+                  label={material.material_code}
+                />
+                <div className="flex flex-col gap-2">
+                  <p className="text-sm text-ink">
+                    {photo.isPrimary ? "Primary photo" : "Extra photo"}
+                  </p>
+                  {editor ? (
+                    <>
+                      {photo.isPrimary ? null : (
+                        <form action={setPrimaryPhoto}>
+                          <input
+                            type="hidden"
+                            name="photoId"
+                            value={photo.id}
+                          />
+                          <input
+                            type="hidden"
+                            name="materialCode"
+                            value={material.material_code}
+                          />
+                          <button
+                            type="submit"
+                            className="min-h-11 text-sm text-ink"
+                          >
+                            Set as primary
+                          </button>
+                        </form>
+                      )}
+                      <form action={archivePhoto}>
+                        <input type="hidden" name="photoId" value={photo.id} />
+                        <input
+                          type="hidden"
+                          name="materialCode"
+                          value={material.material_code}
+                        />
+                        <button
+                          type="submit"
+                          className="min-h-11 text-sm text-ink"
+                        >
+                          Archive photo
+                        </button>
+                      </form>
+                      <AddPhoto
+                        materialId={material.id}
+                        replacePath={photo.storagePath}
+                      />
+                    </>
+                  ) : null}
+                </div>
+              </li>
+            ))}
+          </ul>
+        )}
+        {editor ? <AddPhoto materialId={material.id} /> : null}
+      </section>
       {notice ? (
         <StatusNote tone={noticeTone === "error" ? "error" : "ok"}>
           {notice}

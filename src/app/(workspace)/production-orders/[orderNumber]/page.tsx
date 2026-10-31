@@ -11,12 +11,14 @@ import {
   SelectField,
   TextField,
 } from "@/components/records/fields";
+import { PhotoThumb } from "@/components/inventory/photo-thumb";
 import { LoadingLine } from "@/components/shell/loading-line";
 import { NoAccess } from "@/components/shell/no-access";
 import { StatusNote } from "@/components/shell/status-note";
 import { canEditInventory, canSeePrivateRecords } from "@/lib/auth/permissions";
 import { firstQueryValue } from "@/lib/auth/notices";
 import { gateArea } from "@/lib/auth/session";
+import { photosForMaterials } from "@/lib/inventory/photo-urls";
 import { EDIT_NOTICES, ORDER_STATUSES } from "@/lib/records/edit";
 import { createClient } from "@/lib/supabase/server";
 
@@ -98,32 +100,50 @@ async function OrderScreen({ params, searchParams }: PageProps) {
     );
   }
   const typed = order as OrderRow;
-  const [privateResult, stylesResult, fittingsResult] = await Promise.all([
-    canPrivate
-      ? supabase
-          .from("order_private")
-          .select(
-            "contacts, contact_emails, budget_per_costume, restricted_notes",
-          )
-          .eq("order_id", typed.id)
-          .maybeSingle()
-      : Promise.resolve({ data: null }),
-    supabase
-      .from("styles")
-      .select("id, style_key, garment_description")
-      .eq("order_id", typed.id)
-      .order("style_key"),
-    supabase
-      .from("fittings")
-      .select(
-        "id, fitting_code, garment, size_label, approval_status, comments, archived_at",
-      )
-      .eq("order_id", typed.id)
-      .order("fitting_code"),
-  ]);
+  const [privateResult, stylesResult, fittingsResult, bomResult] =
+    await Promise.all([
+      canPrivate
+        ? supabase
+            .from("order_private")
+            .select(
+              "contacts, contact_emails, budget_per_costume, restricted_notes",
+            )
+            .eq("order_id", typed.id)
+            .maybeSingle()
+        : Promise.resolve({ data: null }),
+      supabase
+        .from("styles")
+        .select("id, style_key, garment_description")
+        .eq("order_id", typed.id)
+        .order("style_key"),
+      supabase
+        .from("fittings")
+        .select(
+          "id, fitting_code, garment, size_label, approval_status, comments, archived_at",
+        )
+        .eq("order_id", typed.id)
+        .order("fitting_code"),
+      supabase
+        .from("bom_lines")
+        .select("id, line_code, fabric_name, fabric_as_written, material_id")
+        .eq("order_id", typed.id)
+        .is("archived_at", null),
+    ]);
   const hidden = privateResult.data as PrivateRow | null;
   const styles = (stylesResult.data ?? []) as StyleLink[];
   const fittings = (fittingsResult.data ?? []) as FittingRow[];
+  const fabrics = (bomResult.data ?? []) as {
+    id: number;
+    line_code: string;
+    fabric_name: string | null;
+    fabric_as_written: string | null;
+    material_id: number | null;
+  }[];
+  const photos = await photosForMaterials(
+    fabrics
+      .map((line) => line.material_id)
+      .filter((id): id is number => id !== null),
+  );
 
   return (
     <div className="mx-auto flex w-full max-w-lg flex-col gap-4">
@@ -253,6 +273,33 @@ async function OrderScreen({ params, searchParams }: PageProps) {
           {typed.status === "cancelled" ? "Cancelled" : "In progress"}
         </p>
       )}
+      <section className="flex flex-col gap-3">
+        <h2 className="font-serif text-2xl text-ink">Fabrics on this order</h2>
+        {fabrics.length === 0 ? (
+          <p className="text-sm text-muted">No fabric lines yet.</p>
+        ) : (
+          fabrics.map((line) => {
+            const photo = line.material_id
+              ? photos.get(line.material_id)
+              : null;
+            const label =
+              line.fabric_name ?? line.fabric_as_written ?? line.line_code;
+            return (
+              <div key={line.id} className="flex items-center gap-3">
+                <PhotoThumb
+                  thumbUrl={photo?.thumbUrl ?? null}
+                  fullUrl={photo?.fullUrl ?? null}
+                  label={label}
+                />
+                <p className="text-sm text-ink">
+                  {line.line_code}
+                  {label ? ` · ${label}` : ""}
+                </p>
+              </div>
+            );
+          })
+        )}
+      </section>
       <section className="flex flex-col gap-2">
         <h2 className="font-serif text-2xl text-ink">Styles</h2>
         {styles.map((style) => (

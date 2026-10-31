@@ -8,12 +8,14 @@ import {
   SelectField,
   TextField,
 } from "@/components/records/fields";
+import { PhotoThumb } from "@/components/inventory/photo-thumb";
 import { LoadingLine } from "@/components/shell/loading-line";
 import { NoAccess } from "@/components/shell/no-access";
 import { StatusNote } from "@/components/shell/status-note";
 import { canEditInventory, canSeeCosts } from "@/lib/auth/permissions";
 import { firstQueryValue } from "@/lib/auth/notices";
 import { gateArea } from "@/lib/auth/session";
+import { photosForMaterials } from "@/lib/inventory/photo-urls";
 import { EDIT_NOTICES, SIZE_CODES } from "@/lib/records/edit";
 import { createClient } from "@/lib/supabase/server";
 
@@ -121,12 +123,10 @@ async function StyleScreen({ params, searchParams }: PageProps) {
         )
         .eq("style_id", typed.id)
         .order("line_code"),
-      editor
-        ? supabase
-            .from("materials")
-            .select("id, material_code")
-            .order("material_code")
-        : Promise.resolve({ data: [] }),
+      supabase
+        .from("materials")
+        .select("id, material_code")
+        .order("material_code"),
     ]);
   const stages = (stagesResult.data ?? []) as StageRow[];
   const sizes = new Map(
@@ -134,6 +134,12 @@ async function StyleScreen({ params, searchParams }: PageProps) {
   );
   const bomLines = (bomResult.data ?? []) as BomRow[];
   const materials = (materialsResult.data ?? []) as MaterialOption[];
+  const photoIds = [
+    typed.material_id,
+    ...bomLines.map((line) => line.material_id),
+  ].filter((id): id is number => id !== null);
+  const photos = await photosForMaterials(photoIds);
+  const linked = photos.get(typed.material_id ?? -1);
   const costs = new Map<number, CostRow>();
   if (seeCosts && bomLines.length > 0) {
     const { data } = await supabase
@@ -230,6 +236,22 @@ async function StyleScreen({ params, searchParams }: PageProps) {
             label="Fabric as written"
             defaultValue={typed.fabric_code_raw}
           />
+          {typed.material_id ? (
+            <div className="flex items-center gap-3">
+              <PhotoThumb
+                thumbUrl={linked?.thumbUrl ?? null}
+                fullUrl={linked?.fullUrl ?? null}
+                label={
+                  materials.find((item) => item.id === typed.material_id)
+                    ?.material_code ?? "Fabric"
+                }
+              />
+              <p className="text-sm text-ink">
+                {materials.find((item) => item.id === typed.material_id)
+                  ?.material_code ?? "Linked fabric"}
+              </p>
+            </div>
+          ) : null}
           <SelectField
             id="materialId"
             name="materialId"
@@ -317,6 +339,32 @@ async function StyleScreen({ params, searchParams }: PageProps) {
                 {line.line_code}
                 {line.component ? ` · ${line.component}` : ""}
               </legend>
+              <div className="flex items-center gap-3">
+                <PhotoThumb
+                  thumbUrl={
+                    line.material_id
+                      ? (photos.get(line.material_id)?.thumbUrl ?? null)
+                      : null
+                  }
+                  fullUrl={
+                    line.material_id
+                      ? (photos.get(line.material_id)?.fullUrl ?? null)
+                      : null
+                  }
+                  label={
+                    materials.find((item) => item.id === line.material_id)
+                      ?.material_code ??
+                    line.fabric_as_written ??
+                    "Fabric"
+                  }
+                />
+                <p className="text-sm text-ink">
+                  {materials.find((item) => item.id === line.material_id)
+                    ?.material_code ??
+                    line.fabric_as_written ??
+                    "No linked fabric"}
+                </p>
+              </div>
               <input type="hidden" name="bomId" value={line.id} />
               <input
                 type="hidden"
@@ -392,10 +440,35 @@ async function StyleScreen({ params, searchParams }: PageProps) {
           <SaveButton label="Save style" />
         </form>
       ) : (
-        <p className="text-sm text-muted">
-          {typed.style_key}
-          {typed.order_number_raw ? ` · Order ${typed.order_number_raw}` : ""}
-        </p>
+        <div className="flex flex-col gap-3">
+          <p className="text-sm text-muted">
+            {typed.style_key}
+            {typed.order_number_raw ? ` · Order ${typed.order_number_raw}` : ""}
+          </p>
+          {bomLines.map((line) => (
+            <div key={line.id} className="flex items-center gap-3">
+              <PhotoThumb
+                thumbUrl={
+                  line.material_id
+                    ? (photos.get(line.material_id)?.thumbUrl ?? null)
+                    : null
+                }
+                fullUrl={
+                  line.material_id
+                    ? (photos.get(line.material_id)?.fullUrl ?? null)
+                    : null
+                }
+                label={line.fabric_as_written ?? "Fabric"}
+              />
+              <p className="text-sm text-ink">
+                {materials.find((item) => item.id === line.material_id)
+                  ?.material_code ??
+                  line.fabric_as_written ??
+                  "No linked fabric"}
+              </p>
+            </div>
+          ))}
+        </div>
       )}
     </div>
   );

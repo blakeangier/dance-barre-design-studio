@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useId, useRef, useState, type KeyboardEvent } from "react";
+import { PhotoThumb } from "@/components/inventory/photo-thumb";
 import { StockBadge } from "@/components/inventory/stock-badge";
 import { metres } from "@/lib/inventory/format";
 import {
@@ -19,6 +20,7 @@ type Draft = {
   lowOnly: boolean;
   reviewOnly: boolean;
   showArchived: boolean;
+  missingPhoto: boolean;
 };
 
 function toParams(draft: Draft): URLSearchParams {
@@ -30,6 +32,7 @@ function toParams(draft: Draft): URLSearchParams {
   if (draft.lowOnly) params.set("low", "1");
   if (draft.reviewOnly) params.set("review", "1");
   if (draft.showArchived) params.set("archived", "1");
+  if (draft.missingPhoto) params.set("nophoto", "1");
   return params;
 }
 
@@ -45,6 +48,7 @@ export function InventoryBrowser({
   initialLow,
   initialReview,
   showArchived: initialArchived,
+  missingPhoto: initialMissing,
   canEdit,
 }: {
   items: InventoryMaterial[];
@@ -54,6 +58,7 @@ export function InventoryBrowser({
   initialLow: boolean;
   initialReview: boolean;
   showArchived: boolean;
+  missingPhoto: boolean;
   canEdit: boolean;
 }) {
   const router = useRouter();
@@ -67,6 +72,7 @@ export function InventoryBrowser({
       lowOnly: initialLow,
       reviewOnly: initialReview,
       showArchived: initialArchived,
+      missingPhoto: initialMissing,
     }).toString(),
   );
   const draftRef = useRef<Draft>({
@@ -75,6 +81,7 @@ export function InventoryBrowser({
     lowOnly: initialLow,
     reviewOnly: initialReview,
     showArchived: initialArchived,
+    missingPhoto: initialMissing,
   });
 
   const [query, setQuery] = useState(initialQuery);
@@ -82,6 +89,7 @@ export function InventoryBrowser({
   const [lowOnly, setLowOnly] = useState(initialLow);
   const [reviewOnly, setReviewOnly] = useState(initialReview);
   const [showArchived, setShowArchived] = useState(initialArchived);
+  const [missingPhoto, setMissingPhoto] = useState(initialMissing);
   const [appliedQuery, setAppliedQuery] = useState(initialQuery);
   const [appliedType, setAppliedType] = useState(initialType);
   const [open, setOpen] = useState(false);
@@ -92,6 +100,7 @@ export function InventoryBrowser({
   const urlLow = searchParams.get("low") === "1";
   const urlReview = searchParams.get("review") === "1";
   const urlArchived = searchParams.get("archived") === "1";
+  const urlMissing = searchParams.get("nophoto") === "1";
 
   function commit(draft: Draft) {
     const next = toParams(draft).toString();
@@ -109,6 +118,7 @@ export function InventoryBrowser({
       lowOnly: urlLow,
       reviewOnly: urlReview,
       showArchived: urlArchived,
+      missingPhoto: urlMissing,
     }).toString();
     if (canonical === writtenUrl.current) return;
     writtenUrl.current = canonical;
@@ -118,15 +128,17 @@ export function InventoryBrowser({
       lowOnly: urlLow,
       reviewOnly: urlReview,
       showArchived: urlArchived,
+      missingPhoto: urlMissing,
     };
     setQuery(urlQuery);
     setType(urlType);
     setLowOnly(urlLow);
     setReviewOnly(urlReview);
     setShowArchived(urlArchived);
+    setMissingPhoto(urlMissing);
     setAppliedQuery(urlQuery);
     setAppliedType(urlType);
-  }, [urlQuery, urlType, urlLow, urlReview, urlArchived]);
+  }, [urlQuery, urlType, urlLow, urlReview, urlArchived, urlMissing]);
 
   useEffect(() => {
     const handle = window.setTimeout(() => {
@@ -149,12 +161,15 @@ export function InventoryBrowser({
     lowOnly,
     reviewOnly,
   };
-  const materials = filterMaterials(items, filters);
-  const suggestions = suggestMaterials(items, filters);
+  const pool = missingPhoto
+    ? items.filter((item) => !item.photoThumbUrl)
+    : items;
+  const materials = filterMaterials(pool, filters);
+  const suggestions = suggestMaterials(pool, filters);
   const pending =
     query.trim() !== appliedQuery.trim() || type.trim() !== appliedType.trim();
   const showSuggestions = open && query.trim().length > 0 && !pending;
-  const filterKey = `${appliedQuery}\n${appliedType}\n${lowOnly}\n${reviewOnly}`;
+  const filterKey = `${appliedQuery}\n${appliedType}\n${lowOnly}\n${reviewOnly}\n${missingPhoto}`;
   const [highlightKey, setHighlightKey] = useState(filterKey);
   if (highlightKey !== filterKey) {
     setHighlightKey(filterKey);
@@ -206,6 +221,13 @@ export function InventoryBrowser({
     const next = { ...draftRef.current, showArchived: checked };
     remember(next);
     setShowArchived(checked);
+    commit(next);
+  }
+
+  function onMissingPhotoChange(checked: boolean) {
+    const next = { ...draftRef.current, missingPhoto: checked };
+    remember(next);
+    setMissingPhoto(checked);
     commit(next);
   }
 
@@ -309,7 +331,18 @@ export function InventoryBrowser({
                 className="max-h-[min(20rem,40dvh)] overflow-y-auto rounded-xl border border-line"
               >
                 {suggestions.map((item, index) => (
-                  <li key={item.id} role="presentation">
+                  <li
+                    key={item.id}
+                    role="presentation"
+                    className={`flex items-center gap-3 px-3 py-2 ${
+                      index === highlighted ? "bg-paper" : "bg-card"
+                    }`}
+                  >
+                    <PhotoThumb
+                      thumbUrl={item.photoThumbUrl ?? null}
+                      fullUrl={item.photoFullUrl ?? null}
+                      label={item.materialCode}
+                    />
                     <Link
                       id={`${listId}-option-${index}`}
                       role="option"
@@ -317,9 +350,7 @@ export function InventoryBrowser({
                       href={materialHref(item.materialCode)}
                       onPointerDown={(event) => event.preventDefault()}
                       onMouseEnter={() => setActiveIndex(index)}
-                      className={`block min-h-16 px-3 py-2 ${
-                        index === highlighted ? "bg-paper" : "bg-card"
-                      }`}
+                      className="min-h-16 min-w-0 flex-1 py-1"
                     >
                       <span className="block font-medium text-ink">
                         {item.materialCode}
@@ -379,6 +410,15 @@ export function InventoryBrowser({
           />
           Show archived
         </label>
+        <label className="flex min-h-12 items-center gap-2 text-sm">
+          <input
+            type="checkbox"
+            className="size-5"
+            checked={missingPhoto}
+            onChange={(event) => onMissingPhotoChange(event.target.checked)}
+          />
+          No photo
+        </label>
       </div>
       {loadError ? (
         <p className="text-sm text-muted">The inventory list did not load.</p>
@@ -391,31 +431,46 @@ export function InventoryBrowser({
               key={material.id}
               className="rounded-2xl border border-line bg-card p-4"
             >
-              <Link
-                href={materialHref(material.materialCode)}
-                className="inline-flex min-h-11 items-center font-medium text-ink"
-              >
-                {material.materialCode}
-              </Link>
-              <p className="text-sm text-muted">
-                {[material.fabricName, material.colourName, material.content]
-                  .filter(Boolean)
-                  .join(" · ")}
-              </p>
-              {material.binLocation ? (
-                <p className="text-sm text-muted">Bin {material.binLocation}</p>
-              ) : null}
-              {material.needsReview ? (
-                <p className="mt-1 text-xs font-medium text-ink">
-                  Needs review
-                </p>
-              ) : null}
-              <StockBadge
-                onHand={material.onHandM}
-                reserved={material.reservedM}
-                available={material.availableM}
-                low={material.isLowStock}
-              />
+              <div className="flex items-start gap-3">
+                <PhotoThumb
+                  thumbUrl={material.photoThumbUrl ?? null}
+                  fullUrl={material.photoFullUrl ?? null}
+                  label={material.materialCode}
+                />
+                <div className="min-w-0">
+                  <Link
+                    href={materialHref(material.materialCode)}
+                    className="inline-flex min-h-11 items-center font-medium text-ink"
+                  >
+                    {material.materialCode}
+                  </Link>
+                  <p className="text-sm text-muted">
+                    {[
+                      material.fabricName,
+                      material.colourName,
+                      material.content,
+                    ]
+                      .filter(Boolean)
+                      .join(" · ")}
+                  </p>
+                  {material.binLocation ? (
+                    <p className="text-sm text-muted">
+                      Bin {material.binLocation}
+                    </p>
+                  ) : null}
+                  {material.needsReview ? (
+                    <p className="mt-1 text-xs font-medium text-ink">
+                      Needs review
+                    </p>
+                  ) : null}
+                  <StockBadge
+                    onHand={material.onHandM}
+                    reserved={material.reservedM}
+                    available={material.availableM}
+                    low={material.isLowStock}
+                  />
+                </div>
+              </div>
             </li>
           ))}
         </ul>

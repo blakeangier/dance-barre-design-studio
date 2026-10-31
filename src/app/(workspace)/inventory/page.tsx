@@ -5,6 +5,7 @@ import { NoAccess } from "@/components/shell/no-access";
 import { canEditInventory } from "@/lib/auth/permissions";
 import { gateArea } from "@/lib/auth/session";
 import { firstQueryValue } from "@/lib/auth/notices";
+import { photosForMaterials } from "@/lib/inventory/photo-urls";
 import {
   supplierSearchText,
   type InventoryMaterial,
@@ -92,9 +93,9 @@ async function InventoryScreen({
       row,
     ]),
   );
-  const items: InventoryMaterial[] = (
-    (materialsResult.data ?? []) as MaterialRow[]
-  ).map((material) => {
+  const materialRows = (materialsResult.data ?? []) as MaterialRow[];
+  const photos = await photosForMaterials(materialRows.map((row) => row.id));
+  const items: InventoryMaterial[] = materialRows.map((material) => {
     const levels = stock.get(material.id);
     return {
       id: material.id,
@@ -113,6 +114,8 @@ async function InventoryScreen({
       reservedM: asNumber(levels?.reserved_m),
       availableM: asNumber(levels?.available_m),
       isLowStock: levels?.is_low_stock ?? false,
+      photoThumbUrl: photos.get(material.id)?.thumbUrl ?? null,
+      photoFullUrl: photos.get(material.id)?.fullUrl ?? null,
     };
   });
 
@@ -125,6 +128,7 @@ async function InventoryScreen({
       initialLow={firstQueryValue(params.low) === "1"}
       initialReview={firstQueryValue(params.review) === "1"}
       showArchived={showArchived}
+      missingPhoto={firstQueryValue(params.nophoto) === "1"}
       canEdit={canEditInventory(gate.profile)}
     />
   );

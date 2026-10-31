@@ -8,6 +8,7 @@ import {
   SelectField,
   TextField,
 } from "@/components/records/fields";
+import { PhotoThumb } from "@/components/inventory/photo-thumb";
 import { LoadingLine } from "@/components/shell/loading-line";
 import { NoAccess } from "@/components/shell/no-access";
 import { StatusNote } from "@/components/shell/status-note";
@@ -15,6 +16,7 @@ import { canRecordPurchase, canSeeCosts } from "@/lib/auth/permissions";
 import { firstQueryValue } from "@/lib/auth/notices";
 import { gateArea } from "@/lib/auth/session";
 import { metres, money } from "@/lib/inventory/format";
+import { photosForMaterials } from "@/lib/inventory/photo-urls";
 import { EDIT_NOTICES } from "@/lib/records/edit";
 import { createClient } from "@/lib/supabase/server";
 
@@ -80,6 +82,10 @@ async function PurchaseScreen({ params, searchParams }: PageProps) {
   }
   const line = data as unknown as LineRow;
   const po = line.purchase_orders;
+  const photos = await photosForMaterials(
+    line.material_id ? [line.material_id] : [],
+  );
+  const photo = line.material_id ? photos.get(line.material_id) : null;
   const [suppliers, materials, priceResult] = await Promise.all([
     editor
       ? supabase.from("suppliers").select("id, name").order("name")
@@ -104,7 +110,14 @@ async function PurchaseScreen({ params, searchParams }: PageProps) {
       <Link href="/purchases" className="text-sm text-muted">
         Purchases
       </Link>
-      <h1 className="font-serif text-3xl text-ink">{line.line_code}</h1>
+      <div className="flex items-start gap-3">
+        <PhotoThumb
+          thumbUrl={photo?.thumbUrl ?? null}
+          fullUrl={photo?.fullUrl ?? null}
+          label={line.material_code_raw ?? line.line_code}
+        />
+        <h1 className="font-serif text-3xl text-ink">{line.line_code}</h1>
+      </div>
       {notice ? (
         <StatusNote tone={notice.tone}>{notice.text}</StatusNote>
       ) : null}
