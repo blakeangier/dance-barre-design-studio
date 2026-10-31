@@ -1,0 +1,26 @@
+[
+  {
+    "email": "blakeangier@gmail.com",
+    "fullName": "Blake Angier",
+    "role": "owner",
+    "canPurchase": false
+  },
+  {
+    "email": "dancebarredirectors@dancebarre.ca",
+    "fullName": "Lindsay Angier",
+    "role": "owner",
+    "canPurchase": true
+  },
+  {
+    "email": "designstudio.dancebarre@gmail.com",
+    "fullName": "Elaine Chatwood",
+    "role": "production_manager",
+    "canPurchase": false
+  },
+  {
+    "email": "dancebarrestudiomanager@dancebarre.ca",
+    "fullName": "Rebecca Hannam",
+    "role": "payroll_admin",
+    "canPurchase": false
+  }
+]

@@ -1,0 +1,139 @@
+import { Suspense } from "react";
+import { updateMyDetails } from "@/app/(workspace)/actions";
+import { firstQueryValue, noticeText } from "@/lib/auth/notices";
+import { areasFor, ROLE_LABELS } from "@/lib/auth/permissions";
+import { gateArea } from "@/lib/auth/session";
+import { createClient } from "@/lib/supabase/server";
+import { LoadingLine } from "@/components/shell/loading-line";
+import { NoAccess } from "@/components/shell/no-access";
+import { StatusNote } from "@/components/shell/status-note";
+import Link from "next/link";
+
+export const metadata = {
+  title: "Home",
+};
+
+type HomeProps = {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+};
+
+export default function HomePage(props: HomeProps) {
+  return (
+    <Suspense fallback={<LoadingLine />}>
+      <HomeScreen searchParams={props.searchParams} />
+    </Suspense>
+  );
+}
+
+async function HomeScreen({
+  searchParams,
+}: {
+  searchParams: HomeProps["searchParams"];
+}) {
+  const gate = await gateArea("home");
+  if (!gate.ok) return <NoAccess reason={gate.reason} />;
+
+  const params = await searchParams;
+  const notice = noticeText(firstQueryValue(params.notice));
+  const areas = areasFor(gate.profile).filter((area) => area.id !== "home");
+  const supabase = await createClient();
+  const { data: entities, error } = await supabase
+    .from("business_entities")
+    .select("id, legal_name, short_name, home_currency")
+    .order("legal_name");
+
+  return (
+    <div className="flex flex-col gap-5">
+      {notice ? <StatusNote>{notice}</StatusNote> : null}
+      <section>
+        <h1 className="font-serif text-3xl text-wine-deep">
+          Hello{gate.profile.fullName ? `, ${gate.profile.fullName}` : ""}
+        </h1>
+        <p className="mt-2 max-w-prose leading-relaxed text-ink/80">
+          You are signed in as {ROLE_LABELS[gate.profile.role]}
+          {gate.profile.canPurchase ? " with purchasing access" : ""}. This
+          first version is the foundation: sign-in, roles, and the locked tables
+          later phases will fill in.
+        </p>
+      </section>
+      <section className="rounded-2xl border border-line bg-card p-5">
+        <h2 className="font-serif text-2xl text-wine">Companies</h2>
+        {error ? (
+          <p className="mt-2 text-sm text-ink/75">
+            The company list did not load. Apply the database migrations if you
+            have not yet.
+          </p>
+        ) : (
+          <ul className="mt-3 flex flex-col gap-2">
+            {(entities ?? []).map((entity) => (
+              <li key={entity.id} className="text-sm">
+                <span className="font-medium">{entity.legal_name}</span>
+                <span className="text-ink/70">
+                  {" "}
+                  · {entity.short_name} · {entity.home_currency}
+                </span>
+              </li>
+            ))}
+          </ul>
+        )}
+        <p className="mt-3 text-sm text-ink/70">
+          Both companies start in CAD. That is a starting assumption, not a
+          confirmed bookkeeping fact. USD is allowed when a later phase records
+          money.
+        </p>
+      </section>
+      <section>
+        <h2 className="font-serif text-2xl text-wine">Your areas</h2>
+        <ul className="mt-3 grid gap-3 sm:grid-cols-2">
+          {areas.map((area) => (
+            <li key={area.id}>
+              <Link
+                href={area.href}
+                className="block min-h-20 rounded-2xl border border-line bg-card p-4 hover:border-gold"
+              >
+                <span className="block font-medium">{area.label}</span>
+                <span className="mt-1 block text-sm text-ink/70">
+                  {area.description}
+                </span>
+              </Link>
+            </li>
+          ))}
+        </ul>
+      </section>
+      <section className="rounded-2xl border border-line bg-card p-5">
+        <h2 className="font-serif text-2xl text-wine">Your details</h2>
+        <form action={updateMyDetails} className="mt-3 flex flex-col gap-3">
+          <label className="text-sm font-medium" htmlFor="fullName">
+            Name
+          </label>
+          <input
+            id="fullName"
+            name="fullName"
+            defaultValue={gate.profile.fullName}
+            required
+            maxLength={120}
+            className="min-h-12 rounded-xl border border-line bg-cream px-3 text-base"
+          />
+          <label className="text-sm font-medium" htmlFor="phone">
+            Phone
+          </label>
+          <input
+            id="phone"
+            name="phone"
+            type="tel"
+            autoComplete="tel"
+            defaultValue={gate.profile.phone ?? ""}
+            maxLength={40}
+            className="min-h-12 rounded-xl border border-line bg-cream px-3 text-base"
+          />
+          <button
+            type="submit"
+            className="min-h-12 rounded-full bg-wine px-4 font-medium text-cream"
+          >
+            Save details
+          </button>
+        </form>
+      </section>
+    </div>
+  );
+}

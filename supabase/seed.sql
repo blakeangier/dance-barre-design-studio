@@ -1,0 +1,6 @@
+-- Local seed, applied by `supabase db reset` only.
+-- `supabase db push` does not run this file against the hosted project.
+--
+-- The two operating entities are inserted by the foundation migration.
+-- Do not put pay rates, supplier prices, passwords, or other business facts here.
+-- Anything added later for a demo must be labelled SAMPLE in the row itself.

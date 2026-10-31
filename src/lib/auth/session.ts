@@ -1,0 +1,83 @@
+import "server-only";
+
+import { cache } from "react";
+import { redirect } from "next/navigation";
+import {
+  canAccessArea,
+  isAppRole,
+  type AccessProfile,
+  type AppRole,
+  type AreaId,
+} from "@/lib/auth/permissions";
+import { hasPublicSupabaseEnv } from "@/lib/supabase/env";
+import { createClient } from "@/lib/supabase/server";
+
+export type CurrentProfile = AccessProfile & {
+  id: string;
+  email: string;
+  fullName: string;
+  phone: string | null;
+  role: AppRole;
+};
+
+export type SessionState =
+  | { status: "unconfigured" }
+  | { status: "anonymous" }
+  | { status: "inactive" }
+  | { status: "missing-profile" }
+  | { status: "database-error" }
+  | { status: "ready"; profile: CurrentProfile };
+
+// Read once per request. Not cached across requests: a role change should
+// apply the next time someone opens a page.
+export const getSessionState = cache(async (): Promise<SessionState> => {
+  if (!hasPublicSupabaseEnv()) return { status: "unconfigured" };
+
+  const supabase = await createClient();
+  const { data, error } = await supabase.auth.getClaims();
+
+  if (error || !data?.claims.sub) return { status: "anonymous" };
+
+  const { data: row, error: profileError } = await supabase
+    .from("profiles")
+    .select("id, email, full_name, role, can_purchase, is_active, phone")
+    .eq("id", data.claims.sub)
+    .maybeSingle();
+
+  if (profileError) {
+    console.error("Profile lookup failed");
+    return { status: "database-error" };
+  }
+
+  if (!row || !isAppRole(row.role)) return { status: "missing-profile" };
+  if (!row.is_active) return { status: "inactive" };
+
+  return {
+    status: "ready",
+    profile: {
+      id: row.id,
+      email: row.email,
+      fullName: row.full_name,
+      phone: row.phone,
+      role: row.role,
+      canPurchase: row.can_purchase,
+    },
+  };
+});
+
+export async function gateArea(area: AreaId): Promise<
+  | { ok: true; profile: CurrentProfile }
+  | {
+      ok: false;
+      reason: Exclude<SessionState["status"], "anonymous" | "ready"> | "denied";
+    }
+> {
+  const state = await getSessionState();
+
+  if (state.status === "anonymous") redirect("/login");
+  if (state.status !== "ready") return { ok: false, reason: state.status };
+  if (!canAccessArea(state.profile, area))
+    return { ok: false, reason: "denied" };
+
+  return { ok: true, profile: state.profile };
+}
