@@ -238,6 +238,14 @@ export function canSeeStaffPrivate(profile: AccessProfile): boolean {
   return profile.role === "owner" || profile.role === "payroll_admin";
 }
 
+export function canEditSchedule(profile: AccessProfile): boolean {
+  return profile.role === "owner" || profile.role === "production_manager";
+}
+
+export function canProcessPayroll(profile: AccessProfile): boolean {
+  return profile.role === "owner" || profile.role === "payroll_admin";
+}
+
 export function areasFor(profile: AccessProfile): NavItem[] {
   return AREAS.filter((area) => canAccessArea(profile, area.id));
 }

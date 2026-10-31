@@ -12,13 +12,13 @@ import { firstQueryValue } from "@/lib/auth/notices";
 import { money } from "@/lib/inventory/format";
 import { todayInToronto } from "@/lib/inventory/usage";
 import {
-  currentBiweeklyPeriod,
   employeeGross,
   monthlyAmount,
   rateOn,
-  workedHours,
   type Frequency,
 } from "@/lib/finances/money";
+import { includeInPayrollExport } from "@/lib/payroll/export-csv";
+import { minutesBetween, payPeriodContaining } from "@/lib/schedule/hours";
 import { createClient } from "@/lib/supabase/server";
 
 export const metadata = { title: "Payroll" };
@@ -50,10 +50,21 @@ async function Payroll({ searchParams }: PageProps) {
   if (!gate.ok) return <NoAccess reason={gate.reason} />;
   const notice = firstQueryValue((await searchParams).notice);
   const today = todayInToronto();
-  const period = currentBiweeklyPeriod(today);
   const month = today.slice(0, 7);
   const year = today.slice(0, 4);
   const supabase = await createClient();
+  const settingsResult = await supabase
+    .from("payroll_settings")
+    .select("pay_period_anchor, rounding_minutes")
+    .eq("id", true)
+    .maybeSingle();
+  const anchor =
+    (settingsResult.data as { pay_period_anchor: string | null } | null)
+      ?.pay_period_anchor ?? null;
+  const rounding =
+    (settingsResult.data as { rounding_minutes: number } | null)
+      ?.rounding_minutes ?? 0;
+  const period = payPeriodContaining(anchor, today);
   const [actualsResult, contractorsResult, sheetsResult] = await Promise.all([
     supabase
       .from("payroll_actuals")
@@ -79,6 +90,8 @@ async function Payroll({ searchParams }: PageProps) {
   const timesheetGross = await grossFromTimesheets(
     sheetsResult.error ? [] : ((sheetsResult.data ?? []) as Timesheet[]),
     !sheetsResult.error,
+    period,
+    rounding,
   );
 
   return (
@@ -90,9 +103,11 @@ async function Payroll({ searchParams }: PageProps) {
         <StatusNote tone="error">That did not save.</StatusNote>
       ) : null}
       <p className="text-sm text-muted">
-        Current pay period {period.start} to {period.end}. Employer CPP and EI
-        come from the remittances you enter. Contractors are listed separately
-        and are not included in payroll.
+        Current pay period{" "}
+        {period ? `${period.start} to ${period.end}` : "is not set yet"}. Hours
+        come from approved timesheets, with unpaid breaks already taken off, and
+        contractors left out the same way as the payroll export. Employer CPP
+        and EI come from the remittances you enter.
       </p>
       {!sheetsResult.error ? (
         <p className="text-sm text-ink">
@@ -216,7 +231,7 @@ async function Payroll({ searchParams }: PageProps) {
 
 function summarize(
   rows: Actual[],
-  period: { start: string; end: string },
+  period: { start: string; end: string } | null,
   month: string,
   year: string,
 ) {
@@ -231,7 +246,7 @@ function summarize(
     add(sums.all, piece);
     if (row.period_start.slice(0, 4) === year) add(sums.year, piece);
     if (row.period_start.slice(0, 7) === month) add(sums.month, piece);
-    if (row.period_start === period.start) add(sums.period, piece);
+    if (period && row.period_start === period.start) add(sums.period, piece);
   }
   return sums;
 }
@@ -253,11 +268,15 @@ type Timesheet = {
   status: string;
 };
 
-async function grossFromTimesheets(sheets: Timesheet[], ready: boolean) {
+async function grossFromTimesheets(
+  sheets: Timesheet[],
+  ready: boolean,
+  period: { start: string; end: string } | null,
+  rounding: number,
+) {
   const empty = { all: 0, period: 0, month: 0, year: 0 };
   if (!ready || sheets.length === 0) return empty;
   const today = todayInToronto();
-  const period = currentBiweeklyPeriod(today);
   const supabase = await createClient();
   const ids = sheets.map((sheet) => sheet.id);
   const profileIds = [...new Set(sheets.map((sheet) => sheet.profile_id))];
@@ -286,7 +305,7 @@ async function grossFromTimesheets(sheets: Timesheet[], ready: boolean) {
         employment_type: string | null;
       }[]
     )
-      .filter((person) => person.employment_type === "contractor")
+      .filter((person) => !includeInPayrollExport(person.employment_type))
       .map((person) => person.id),
   );
   const ratesByPerson = new Map<
@@ -325,20 +344,22 @@ async function grossFromTimesheets(sheets: Timesheet[], ready: boolean) {
     not_worked: boolean;
   }[]) {
     const sheet = sheetById.get(entry.timesheet_id);
-    if (!sheet) continue;
-    const hours = workedHours(
+    if (!sheet || entry.not_worked) continue;
+    if (!entry.actual_starts_at || !entry.actual_ends_at) continue;
+    const minutes = minutesBetween(
       entry.actual_starts_at,
       entry.actual_ends_at,
       entry.actual_break_minutes,
-      entry.not_worked,
+      rounding,
     );
+    const hours = (minutes ?? 0) / 60;
     const line = {
       hours,
       rate: rateOn(ratesByPerson.get(sheet.profile_id) ?? [], entry.work_date),
       contractor: contractors.has(sheet.profile_id),
     };
     lines.all.push(line);
-    if (sheet.period_start === period.start) lines.period.push(line);
+    if (period && sheet.period_start === period.start) lines.period.push(line);
     if (entry.work_date.slice(0, 7) === today.slice(0, 7))
       lines.month.push(line);
     if (entry.work_date.slice(0, 4) === today.slice(0, 4))
