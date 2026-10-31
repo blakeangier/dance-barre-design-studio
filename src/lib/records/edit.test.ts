@@ -1,10 +1,12 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import {
+  employmentType,
   optionalDate,
   optionalNumber,
   optionalText,
   orderStatus,
+  personalEmail,
   personName,
   phoneNumber,
   reviewStatus,
@@ -73,6 +75,27 @@ describe("record edit validation", () => {
     assert.deepEqual(stageYes("already completed"), {
       ok: false,
       notice: "status",
+    });
+  });
+
+  it("keeps employment type and personal email empty unless they are usable", () => {
+    assert.deepEqual(employmentType(""), { ok: true, value: null });
+    assert.deepEqual(employmentType("full-time"), {
+      ok: true,
+      value: "full-time",
+    });
+    assert.deepEqual(employmentType("contractor"), {
+      ok: false,
+      notice: "employment",
+    });
+    assert.deepEqual(personalEmail(""), { ok: true, value: null });
+    assert.deepEqual(personalEmail("  me@example.com "), {
+      ok: true,
+      value: "me@example.com",
+    });
+    assert.deepEqual(personalEmail("not-an-email"), {
+      ok: false,
+      notice: "email",
     });
   });
 

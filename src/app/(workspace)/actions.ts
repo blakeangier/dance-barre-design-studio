@@ -3,7 +3,7 @@
 import { redirect } from "next/navigation";
 import { safeNextPath } from "@/lib/auth/redirect";
 import { getSessionState } from "@/lib/auth/session";
-import { personName, phoneNumber } from "@/lib/records/edit";
+import { optionalText, personName, phoneNumber } from "@/lib/records/edit";
 import { createClient } from "@/lib/supabase/server";
 
 export async function updateMyDetails(formData: FormData) {
@@ -16,13 +16,18 @@ export async function updateMyDetails(formData: FormData) {
   if (!name.ok) redirect(`${nextPath}?notice=${name.notice}`);
   if (!phone.ok) redirect(`${nextPath}?notice=${phone.notice}`);
   const fullName = name.value;
+  const profileUpdate: { full_name: string; pronouns?: string | null } = {
+    full_name: fullName,
+  };
+  if (formData.has("pronouns")) {
+    const pronouns = optionalText(formData.get("pronouns"), 40);
+    if (!pronouns.ok) redirect(`${nextPath}?notice=${pronouns.notice}`);
+    profileUpdate.pronouns = pronouns.value;
+  }
 
   const supabase = await createClient();
   const [nameResult, phoneResult] = await Promise.all([
-    supabase
-      .from("profiles")
-      .update({ full_name: fullName })
-      .eq("id", state.profile.id),
+    supabase.from("profiles").update(profileUpdate).eq("id", state.profile.id),
     supabase
       .from("profile_contacts")
       .update({ phone: phone.value })

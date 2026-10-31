@@ -256,7 +256,7 @@ Dashboard, Tasks, Tasks Done, Fabric Tags, and the empty form tabs are not loade
 
 - Sign-in is email plus password so the shop can get in before email delivery exists. Magic links are on the page and stay quiet until SMTP is connected.
 - Both companies are CAD for now. Blake confirmed that in October 2026. Either company can be switched to USD later by changing `home_currency`.
-- Employees can see coworker names and roles, for tasks and the schedule. They cannot see coworker email, phone, or pay.
+- Employees can see coworker names, titles, and pronouns, for tasks and the schedule. They cannot see coworker email, phone, home address, emergency contacts, or pay. Home address and emergency contacts are for the person, owners, and payroll.
 - Every production manager can read supplier prices. Recording a purchase still needs the purchasing switch. Elaine has that switch.
 - Pay, supplier prices, and costs are append-only: a correction is a new row, not an edit.
 - Ontario payroll rules and ADP's file layout are not in this version. Nothing here invents a rate, a deduction, or a supplier.

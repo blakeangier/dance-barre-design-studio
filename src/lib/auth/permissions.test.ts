@@ -8,6 +8,7 @@ import {
   canRecordPurchase,
   canSeeCosts,
   canSeePrivateRecords,
+  canSeeStaffPrivate,
   type AccessProfile,
   type AppRole,
   type AreaId,
@@ -91,6 +92,10 @@ describe("role areas", () => {
     assert.equal(canRecordPurchase(profiles.buyer), true);
     assert.equal(canRecordPurchase(profiles.owner), true);
     assert.equal(canRecordPurchase(profiles.production_manager), false);
+    assert.equal(canSeeStaffPrivate(profiles.owner), true);
+    assert.equal(canSeeStaffPrivate(profiles.payroll_admin), true);
+    assert.equal(canSeeStaffPrivate(profiles.production_manager), false);
+    assert.equal(canSeeStaffPrivate(profiles.employee), false);
   });
 
   it("lets a production manager with the purchasing switch open Purchasing", () => {

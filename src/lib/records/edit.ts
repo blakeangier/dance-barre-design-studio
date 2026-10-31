@@ -1,3 +1,9 @@
+export const EMPLOYMENT_TYPES = [
+  { value: "", label: "Not set" },
+  { value: "full-time", label: "Full-time" },
+  { value: "part-time", label: "Part-time" },
+] as const;
+
 export const ORDER_STATUSES = [
   { value: "", label: "In progress" },
   { value: "cancelled", label: "Cancelled" },
@@ -74,6 +80,32 @@ export function personName(
   if (!result.ok)
     return result.notice === "long" ? result : { ok: false, notice: "name" };
   return result;
+}
+
+export function employmentType(
+  value: FormDataEntryValue | null | undefined,
+): FieldResult<"full-time" | "part-time" | null> {
+  const trimmed = text(value);
+  if (!trimmed) return { ok: true, value: null };
+  if (trimmed === "full-time" || trimmed === "part-time") {
+    return { ok: true, value: trimmed };
+  }
+  return { ok: false, notice: "employment" };
+}
+
+export function personalEmail(
+  value: FormDataEntryValue | null | undefined,
+): FieldResult<string | null> {
+  const trimmed = text(value);
+  if (!trimmed) return { ok: true, value: null };
+  if (
+    trimmed.length > 200 ||
+    !trimmed.includes("@") ||
+    trimmed.startsWith("@")
+  ) {
+    return { ok: false, notice: "email" };
+  }
+  return { ok: true, value: trimmed };
 }
 
 export function phoneNumber(
@@ -178,6 +210,14 @@ export const EDIT_NOTICES: Record<
     text: "Enter a date as YYYY-MM-DD, or leave it blank.",
   },
   status: { tone: "error", text: "Choose a status from the list." },
+  employment: {
+    tone: "error",
+    text: "Choose full-time, part-time, or leave the type blank.",
+  },
+  email: {
+    tone: "error",
+    text: "Enter a personal email with an @, or leave it blank.",
+  },
   duplicate: {
     tone: "error",
     text: "That code is already used. Choose another.",

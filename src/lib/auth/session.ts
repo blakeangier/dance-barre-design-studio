@@ -17,6 +17,8 @@ export type CurrentProfile = AccessProfile & {
   email: string;
   fullName: string;
   phone: string | null;
+  pronouns: string | null;
+  jobTitle: string | null;
   role: AppRole;
 };
 
@@ -42,7 +44,9 @@ export const getSessionState = cache(async (): Promise<SessionState> => {
   const [profileResult, contactResult] = await Promise.all([
     supabase
       .from("profiles")
-      .select("id, full_name, role, can_purchase, is_active")
+      .select(
+        "id, full_name, role, can_purchase, is_active, pronouns, job_title",
+      )
       .eq("id", userId)
       .maybeSingle(),
     supabase
@@ -70,6 +74,8 @@ export const getSessionState = cache(async (): Promise<SessionState> => {
       email: contactResult.data.email,
       fullName: row.full_name,
       phone: contactResult.data.phone,
+      pronouns: row.pronouns,
+      jobTitle: row.job_title,
       role: row.role,
       canPurchase: row.can_purchase,
     },

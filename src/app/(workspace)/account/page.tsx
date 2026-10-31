@@ -2,12 +2,14 @@ import { redirect } from "next/navigation";
 import { Suspense } from "react";
 import { changePassword } from "@/app/(workspace)/account/actions";
 import { updateMyDetails } from "@/app/(workspace)/actions";
+import { saveEmployeePrivate } from "@/app/(workspace)/records/staff-actions";
 import { LoadingLine } from "@/components/shell/loading-line";
 import { NoAccess } from "@/components/shell/no-access";
 import { StatusNote } from "@/components/shell/status-note";
 import { isPasswordIssue, passwordIssueText } from "@/lib/auth/password";
 import { firstQueryValue } from "@/lib/auth/notices";
 import { getSessionState } from "@/lib/auth/session";
+import { createClient } from "@/lib/supabase/server";
 
 export const metadata = { title: "My account" };
 
@@ -38,8 +40,17 @@ const ACTION_NOTICES: Record<string, { tone: "ok" | "error"; text: string }> = {
   },
   "details-saved": {
     tone: "ok",
-    text: "Your name and phone are saved.",
+    text: "Your name, pronouns, and phone are saved.",
   },
+  "private-saved": {
+    tone: "ok",
+    text: "Your private details are saved.",
+  },
+  email: {
+    tone: "error",
+    text: "Enter a personal email with an @, or leave it blank.",
+  },
+  long: { tone: "error", text: "That text is too long." },
   "save-failed": {
     tone: "error",
     text: "That could not be saved. Try again.",
@@ -64,6 +75,14 @@ async function AccountScreen({
   if (state.status !== "ready") return <NoAccess reason={state.status} />;
 
   const params = await searchParams;
+  const supabase = await createClient();
+  const { data: privateRow } = await supabase
+    .from("employee_private")
+    .select(
+      "street, city, province, postal_code, personal_email, emergency_name, emergency_relationship, emergency_phone",
+    )
+    .eq("profile_id", state.profile.id)
+    .maybeSingle();
   const code = firstQueryValue(params.notice);
   const notice = code
     ? isPasswordIssue(code)
@@ -98,6 +117,16 @@ async function AccountScreen({
             defaultValue={state.profile.fullName}
             className="min-h-12 rounded-xl border border-line bg-card px-3 text-base text-ink"
           />
+          <label className="text-sm font-medium" htmlFor="pronouns">
+            Pronouns
+          </label>
+          <input
+            id="pronouns"
+            name="pronouns"
+            maxLength={40}
+            defaultValue={state.profile.pronouns ?? ""}
+            className="min-h-12 rounded-xl border border-line bg-card px-3 text-base text-ink"
+          />
           <label className="text-sm font-medium" htmlFor="phone">
             Phone
           </label>
@@ -118,6 +147,102 @@ async function AccountScreen({
           </button>
         </form>
       </section>
+      <form
+        action={saveEmployeePrivate}
+        className="flex flex-col gap-3 rounded-2xl border border-line bg-card p-4"
+      >
+        <h2 className="font-serif text-2xl text-ink">Private details</h2>
+        <p className="text-sm text-muted">
+          Only you, the owners, and payroll can see this. It is not shown to the
+          production manager.
+        </p>
+        <input type="hidden" name="profileId" value={state.profile.id} />
+        <input type="hidden" name="next" value="/account" />
+        <label className="text-sm font-medium" htmlFor="street">
+          Street
+        </label>
+        <input
+          id="street"
+          name="street"
+          autoComplete="street-address"
+          defaultValue={privateRow?.street ?? ""}
+          className="min-h-12 rounded-xl border border-line bg-card px-3 text-base"
+        />
+        <label className="text-sm font-medium" htmlFor="city">
+          City
+        </label>
+        <input
+          id="city"
+          name="city"
+          autoComplete="address-level2"
+          defaultValue={privateRow?.city ?? ""}
+          className="min-h-12 rounded-xl border border-line bg-card px-3 text-base"
+        />
+        <label className="text-sm font-medium" htmlFor="province">
+          Province
+        </label>
+        <input
+          id="province"
+          name="province"
+          autoComplete="address-level1"
+          defaultValue={privateRow?.province ?? ""}
+          className="min-h-12 rounded-xl border border-line bg-card px-3 text-base"
+        />
+        <label className="text-sm font-medium" htmlFor="postalCode">
+          Postal code
+        </label>
+        <input
+          id="postalCode"
+          name="postalCode"
+          autoComplete="postal-code"
+          defaultValue={privateRow?.postal_code ?? ""}
+          className="min-h-12 rounded-xl border border-line bg-card px-3 text-base"
+        />
+        <label className="text-sm font-medium" htmlFor="personalEmail">
+          Personal email
+        </label>
+        <input
+          id="personalEmail"
+          name="personalEmail"
+          type="email"
+          defaultValue={privateRow?.personal_email ?? ""}
+          className="min-h-12 rounded-xl border border-line bg-card px-3 text-base"
+        />
+        <label className="text-sm font-medium" htmlFor="emergencyName">
+          Emergency contact
+        </label>
+        <input
+          id="emergencyName"
+          name="emergencyName"
+          defaultValue={privateRow?.emergency_name ?? ""}
+          className="min-h-12 rounded-xl border border-line bg-card px-3 text-base"
+        />
+        <label className="text-sm font-medium" htmlFor="emergencyRelationship">
+          Relationship
+        </label>
+        <input
+          id="emergencyRelationship"
+          name="emergencyRelationship"
+          defaultValue={privateRow?.emergency_relationship ?? ""}
+          className="min-h-12 rounded-xl border border-line bg-card px-3 text-base"
+        />
+        <label className="text-sm font-medium" htmlFor="emergencyPhone">
+          Emergency phone
+        </label>
+        <input
+          id="emergencyPhone"
+          name="emergencyPhone"
+          type="tel"
+          defaultValue={privateRow?.emergency_phone ?? ""}
+          className="min-h-12 rounded-xl border border-line bg-card px-3 text-base"
+        />
+        <button
+          type="submit"
+          className="min-h-12 rounded-full bg-ink px-4 font-medium text-white"
+        >
+          Save private details
+        </button>
+      </form>
       <form
         action={changePassword}
         className="flex flex-col gap-3 rounded-2xl border border-line bg-card p-4"

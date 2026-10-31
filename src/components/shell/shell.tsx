@@ -46,6 +46,7 @@ export async function Shell({ children }: { children: React.ReactNode }) {
             <p className="hidden text-right text-sm sm:block">
               <span className="block leading-tight">
                 {state.profile.fullName}
+                {state.profile.pronouns ? ` (${state.profile.pronouns})` : ""}
               </span>
               <span className="mt-1 flex justify-end gap-1">
                 <span
