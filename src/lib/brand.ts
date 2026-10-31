@@ -19,6 +19,7 @@ export const AREA_ACCENT: Record<AreaId, string> = {
   purchasing: "border-l-orange",
   costing: "border-l-purple",
   "financial-reporting": "border-l-teal",
+  finances: "border-l-purple",
   people: "border-l-pink",
 };
 
