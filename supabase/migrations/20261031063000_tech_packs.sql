@@ -47,17 +47,11 @@ create table public.tech_pack_measures (
   id bigint generated always as identity primary key,
   version_id bigint not null references public.tech_pack_versions (id),
   point_name text not null,
-  size_code text not null,
+  size_code text not null references public.size_scale (size_code),
   value_cm numeric(8, 2),
   tolerance_cm numeric(8, 2),
   sort_order integer not null default 1,
-  unique (version_id, point_name, size_code),
-  constraint tech_pack_measures_size_check check (
-    size_code in (
-      'SC', 'IC', 'IC-L', 'MC', 'MC-L', 'LC', 'XLC',
-      'XSA', 'SA', 'SA-L', 'MA', 'LA', 'XLA', 'XXLA'
-    )
-  )
+  unique (version_id, point_name, size_code)
 );
 
 comment on table public.tech_pack_measures is

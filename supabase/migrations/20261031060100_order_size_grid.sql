@@ -62,16 +62,6 @@ alter table public.bom_size_qty
   add constraint bom_size_qty_size_fkey
   foreign key (size_code) references public.size_scale (size_code);
 
-alter table public.qc_checks drop constraint qc_checks_size_check;
-alter table public.qc_checks
-  add constraint qc_checks_size_fkey
-  foreign key (size_code) references public.size_scale (size_code);
-
-alter table public.tech_pack_measures drop constraint tech_pack_measures_size_check;
-alter table public.tech_pack_measures
-  add constraint tech_pack_measures_size_fkey
-  foreign key (size_code) references public.size_scale (size_code);
-
 create or replace function private.guard_order_size()
 returns trigger
 language plpgsql

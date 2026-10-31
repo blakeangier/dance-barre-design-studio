@@ -31,7 +31,7 @@ create table public.qc_checks (
   order_id bigint not null references public.costume_orders (id),
   template_item_id bigint references public.qc_template_items (id),
   item_name text not null,
-  size_code text,
+  size_code text references public.size_scale (size_code),
   result text not null,
   note text,
   photo_path text,
@@ -42,13 +42,6 @@ create table public.qc_checks (
   archived_at timestamptz,
   constraint qc_checks_result_check check (
     result in ('pass', 'needs_fix', 'fail')
-  ),
-  constraint qc_checks_size_check check (
-    size_code is null
-    or size_code in (
-      'SC', 'IC', 'IC-L', 'MC', 'MC-L', 'LC', 'XLC',
-      'XSA', 'SA', 'SA-L', 'MA', 'LA', 'XLA', 'XXLA'
-    )
   ),
   constraint qc_checks_photo_check check (
     photo_path is null

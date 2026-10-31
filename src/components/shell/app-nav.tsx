@@ -6,6 +6,7 @@ import { usePathname } from "next/navigation";
 type Item = {
   href: string;
   label: string;
+  badge?: number;
 };
 
 export function AppNav({ items }: { items: Item[] }) {
@@ -33,6 +34,11 @@ export function AppNav({ items }: { items: Item[] }) {
                 }`}
               >
                 {item.label}
+                {item.badge ? (
+                  <span className="ml-2 inline-flex min-h-6 min-w-6 items-center justify-center rounded-full bg-orange px-1 text-xs font-medium text-ink">
+                    {item.badge}
+                  </span>
+                ) : null}
               </Link>
             </li>
           );
