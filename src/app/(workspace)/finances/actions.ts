@@ -280,6 +280,56 @@ export async function archiveContractorPayment(formData: FormData) {
   redirect("/finances/payroll?notice=saved");
 }
 
+export async function saveOutsideCostumeBudget(formData: FormData) {
+  await ownerOrRedirect("/finances/outside-costumes");
+  const back = "/finances/outside-costumes";
+  const programId = Number(text(formData.get("programId")));
+  const season = text(formData.get("seasonLabel"));
+  const budget = text(formData.get("budgetAmount"));
+  if (!programId || !season) redirect(`${back}?notice=failed`);
+  const { error } = await (
+    await createClient()
+  )
+    .from("outside_costume_budgets")
+    .insert({
+      program_id: programId,
+      season_label: season,
+      budget_amount: budget ? money(budget) : null,
+      notes: text(formData.get("notes")) || null,
+    });
+  if (error) redirect(`${back}?notice=failed`);
+  redirect(`${back}?notice=saved`);
+}
+
+export async function archiveOutsideCostumeBudget(formData: FormData) {
+  await ownerOrRedirect("/finances/outside-costumes");
+  const { error } = await (
+    await createClient()
+  )
+    .from("outside_costume_budgets")
+    .update({ archived_at: new Date().toISOString() })
+    .eq("id", Number(text(formData.get("id"))));
+  if (error) redirect("/finances/outside-costumes?notice=failed");
+  redirect("/finances/outside-costumes?notice=saved");
+}
+
+export async function importOutsideCostumes(formData: FormData) {
+  await ownerOrRedirect("/finances/outside-costumes");
+  const back = "/finances/outside-costumes";
+  const raw = text(formData.get("payload"));
+  let payload: unknown;
+  try {
+    payload = JSON.parse(raw);
+  } catch {
+    redirect(`${back}?notice=failed`);
+  }
+  const { error } = await (
+    await createClient()
+  ).rpc("upsert_outside_costume_purchases", { payload });
+  if (error) redirect(`${back}?notice=failed`);
+  redirect(`${back}?notice=saved`);
+}
+
 export async function updateCardTransaction(formData: FormData) {
   await ownerOrRedirect("/finances/cards");
   const category = text(formData.get("categoryId"));

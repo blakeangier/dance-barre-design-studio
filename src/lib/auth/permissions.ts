@@ -140,7 +140,8 @@ export const AREAS: readonly NavItem[] = [
     id: "finances",
     href: "/finances",
     label: "Finances",
-    description: "Startup costs, running costs, payroll, and the card.",
+    description:
+      "Startup costs, running costs, payroll, the card, and outside costumes.",
   },
   {
     id: "people",

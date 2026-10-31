@@ -11,6 +11,11 @@ const TABS = [
     label: "Miscellaneous",
     id: "miscellaneous",
   },
+  {
+    href: "/finances/outside-costumes",
+    label: "Outside costumes",
+    id: "outside",
+  },
 ] as const;
 
 export function FinanceTabs({

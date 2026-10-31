@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { Suspense } from "react";
 import { FinanceTabs } from "@/components/finances/tabs";
 import { LoadingLine } from "@/components/shell/loading-line";
@@ -17,6 +18,7 @@ import {
   type RunMode,
   type Frequency,
 } from "@/lib/finances/money";
+import { outsideCostumeSpend } from "@/lib/finances/outside-costumes";
 import { createClient } from "@/lib/supabase/server";
 
 export const metadata = { title: "Finances" };
@@ -52,6 +54,7 @@ async function Overview() {
     settingsResult,
     contractResult,
     paymentResult,
+    outsideResult,
   ] = await Promise.all([
     supabase
       .from("startup_costs")
@@ -95,6 +98,10 @@ async function Overview() {
     supabase
       .from("contractor_payments")
       .select("contract_id, paid_on, amount_cad, hst_cad")
+      .is("archived_at", null),
+    supabase
+      .from("outside_costume_purchases")
+      .select("amount, currency, is_refund")
       .is("archived_at", null),
   ]);
   const startup = (startupResult.data ?? []) as {
@@ -267,6 +274,23 @@ async function Overview() {
       };
     }),
   });
+  const outside = outsideCostumeSpend(
+    (
+      (outsideResult.data ?? []) as {
+        amount: number | string | null;
+        currency: "CAD" | "USD";
+        is_refund: boolean;
+      }[]
+    ).map((row) => ({
+      vendor: "",
+      amount: row.amount === null ? null : Number(row.amount),
+      currency: row.currency === "USD" ? "USD" : "CAD",
+      purchasedOn: null,
+      rawDate: null,
+      refund: row.is_refund,
+      archived: false,
+    })),
+  );
   const chart = monthlyCategorySpend([
     ...startup.flatMap((row) => {
       if (!row.occurred_on) return [];
@@ -367,6 +391,31 @@ async function Overview() {
         </figure>
       </section>
       <section className="flex flex-col gap-3">
+        <figure className="rounded-2xl border border-line bg-card p-4">
+          <figcaption className="text-sm text-muted">
+            Outside costumes
+          </figcaption>
+          <p className="text-sm text-ink">
+            Dance program costumes bought from other stores. This is not a
+            Design Studio startup or running cost.
+          </p>
+          <p className="mt-2 font-serif text-3xl text-ink">
+            {money(outside.cad)}
+          </p>
+          <p className="text-sm text-muted">
+            CAD spent · USD{" "}
+            {outside.usd.toLocaleString("en-CA", {
+              style: "currency",
+              currency: "USD",
+            })}
+          </p>
+          <Link
+            href="/finances/outside-costumes"
+            className="mt-2 inline-flex min-h-11 items-center text-sm font-medium text-ink"
+          >
+            Open outside costumes
+          </Link>
+        </figure>
         <h2 className="font-serif text-2xl text-ink">Next 12 months</h2>
         <ul className="flex flex-col gap-1 text-sm">
           {projection.months.map((month) => (
