@@ -42,7 +42,9 @@ Dev and production must be different Supabase projects and different sets of key
 
 Do not put real costumes, pay, or supplier prices in that project until you mean to. Do not point the dev app at a future production project.
 
-Vercel: use the free team for this dev app. Move to the Pro team before the shop goes live. This repository does not deploy itself.
+Vercel project `dance-barre-design-studio` on Blake's team is connected to this repo. Preview deployments use the **dev** Supabase keys. Leave the Production environment empty until a separate production database exists. Move to the Pro team before the shop goes live.
+
+The foundation migration is already applied on the dev project, and the four accounts (Blake, Lindsay, Elaine, and Rebecca) are created there. New preview builds of this pull request talk to that same dev database. They do not create a separate database of their own.
 
 ## What you can open, by role
 
@@ -212,12 +214,12 @@ scripts/create-users.mjs  first accounts
 
 1. Read this pull request and the migration file `supabase/migrations/*_foundation.sql`.
 2. Install Docker and Node 22 if you want a database on your own machine. `npx supabase start`, then fill `.env.local` from `npx supabase status`.
-3. Or, when you are happy with the migration, link the dev project and run `npx supabase db push` against `peikzgupvcgswyxcfibr`. Do this yourself. This pull request does not connect to that project.
+3. Done. The foundation migration is applied on dev project `peikzgupvcgswyxcfibr`. Later migrations still go on with `npx supabase db push` after you review them.
 4. In the hosted dev project, turn off new sign-ups and set the site URL and `/auth/callback` redirect.
 5. Put the dev URL and publishable key in `.env.local`. Put the secret key in `SUPABASE_SECRET_KEY`. Never commit them. Never add the secret to a variable whose name starts with `NEXT_PUBLIC_`.
-6. Run `npm run create-users` and share the temporary passwords in person or by a private message, not in git.
-7. On Vercel, on the free team, create a project from this GitHub repo. Do not deploy production yet.
-8. In Vercel, add the same variable names for the Development and Preview environments, using the **dev** Supabase keys. Leave Production empty until a separate production Supabase project exists.
+6. Done. The four accounts exist on the dev project. If someone needs a new temporary password, run `node scripts/create-users.mjs --reset-password` and share it in person, not in git.
+7. Done. Vercel project `dance-barre-design-studio` (team blake) is connected. Do not deploy a production database yet.
+8. Preview deployments use the dev Supabase keys. Keep Production empty until a separate production Supabase project exists.
 9. Both companies are CAD for now. If that changes later, update `home_currency` on the company row. The app does not convert currencies.
 10. Before go-live: create a second Supabase project for production, use the Vercel Pro team, and connect email (Resend) so magic links and password resets can be sent. The `RESEND_API_KEY` name is reserved and unused for now.
 
