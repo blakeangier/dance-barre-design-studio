@@ -49,6 +49,7 @@ type Actual = {
   employer_cpp_cad: number | string;
   employer_ei_cad: number | string;
   notes: string | null;
+  source_note: string;
 };
 
 async function Payroll({ searchParams }: PageProps) {
@@ -82,7 +83,7 @@ async function Payroll({ searchParams }: PageProps) {
     supabase
       .from("payroll_actuals")
       .select(
-        "id, period_start, period_end, gross_cad, employer_cpp_cad, employer_ei_cad, notes",
+        "id, period_start, period_end, gross_cad, employer_cpp_cad, employer_ei_cad, notes, source_note",
       )
       .is("archived_at", null)
       .order("period_start", { ascending: false }),
@@ -106,13 +107,15 @@ async function Payroll({ searchParams }: PageProps) {
     supabase
       .from("contractor_contracts")
       .select(
-        "id, contractor_id, total_amount_cad, hst_amount_cad, start_date, end_date, payout, notes",
+        "id, contractor_id, total_amount_cad, hst_amount_cad, start_date, end_date, payout, notes, source_note",
       )
       .is("archived_at", null)
       .order("start_date"),
     supabase
       .from("contractor_payments")
-      .select("id, contract_id, paid_on, amount_cad, hst_cad, notes")
+      .select(
+        "id, contract_id, paid_on, amount_cad, hst_cad, notes, source_note, payment_method",
+      )
       .is("archived_at", null)
       .order("paid_on", { ascending: false, nullsFirst: true }),
   ]);
@@ -128,7 +131,7 @@ async function Payroll({ searchParams }: PageProps) {
   return (
     <div className="mx-auto flex w-full max-w-3xl flex-col gap-4">
       <h1 className="font-serif text-3xl text-ink">Payroll</h1>
-      <FinanceTabs current="payroll" />
+      <FinanceTabs />
       {notice === "saved" ? <StatusNote>Saved.</StatusNote> : null}
       {notice === "failed" ? (
         <StatusNote tone="error">That did not save.</StatusNote>
@@ -269,6 +272,10 @@ async function Payroll({ searchParams }: PageProps) {
               {money(Number(row.employer_ei_cad))}
             </p>
             {row.notes ? <p>{row.notes}</p> : null}
+            <p className="text-muted">
+              Source:{" "}
+              {row.source_note?.trim() ? row.source_note : "Not recorded"}
+            </p>
             <form action={archivePayrollActual}>
               <input type="hidden" name="id" value={row.id} />
               <button type="submit" className="min-h-11 text-sm font-medium">
@@ -435,6 +442,7 @@ type ContractRow = {
   end_date: string;
   payout: "spread" | "lump_sums";
   notes: string | null;
+  source_note: string;
 };
 
 type PaymentRow = {
@@ -444,6 +452,7 @@ type PaymentRow = {
   amount_cad: number | string;
   hst_cad: number | string;
   notes: string | null;
+  source_note: string;
 };
 
 function ContractList({
@@ -497,6 +506,12 @@ function ContractList({
                 : "The remaining balance is spread over production days left in the contract."}
             </p>
             {contract.notes ? <p>{contract.notes}</p> : null}
+            <p className="text-muted">
+              Source:{" "}
+              {contract.source_note?.trim()
+                ? contract.source_note
+                : "Not recorded"}
+            </p>
             <ul className="mt-2 flex flex-col gap-1">
               {rows.map((payment) => (
                 <li
@@ -511,6 +526,10 @@ function ContractList({
                       ? " · scheduled"
                       : ""}
                     {payment.notes ? ` · ${payment.notes}` : ""}
+                    {" · Source: "}
+                    {payment.source_note?.trim()
+                      ? payment.source_note
+                      : "Not recorded"}
                   </span>
                   <form action={archiveContractorPayment}>
                     <input type="hidden" name="id" value={payment.id} />

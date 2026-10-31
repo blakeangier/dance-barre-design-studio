@@ -22,6 +22,13 @@ function money(value: string): number | null {
   return Number.isFinite(number) ? number : null;
 }
 
+function sharePercent(value: string): number {
+  if (!value) return 100;
+  const number = Number(value);
+  if (!Number.isFinite(number) || number < 0 || number > 100) return 100;
+  return number;
+}
+
 export async function saveStartupCost(formData: FormData) {
   const { state } = await ownerOrRedirect("/finances/startup");
   const back = "/finances/startup";
@@ -47,6 +54,8 @@ export async function saveStartupCost(formData: FormData) {
     hst_cad: hst,
     notes: text(formData.get("notes")) || null,
     source,
+    source_note: text(formData.get("sourceNote")),
+    startup_share_percent: sharePercent(text(formData.get("startupShare"))),
     created_by: state.profile.id,
   };
   const id = text(formData.get("id"));
@@ -341,6 +350,7 @@ export async function updateCardTransaction(formData: FormData) {
     .update({
       category_id: category ? Number(category) : null,
       notes: text(formData.get("notes")) || null,
+      source_note: text(formData.get("sourceNote")),
       hst_cad: money(text(formData.get("hstCad"))) ?? 0,
       is_startup: formData.get("isStartup") === "on",
       excluded: formData.get("excluded") === "on",

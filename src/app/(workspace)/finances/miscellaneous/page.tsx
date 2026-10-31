@@ -30,19 +30,19 @@ async function Miscellaneous() {
     ? await Promise.all([
         supabase
           .from("startup_costs")
-          .select("id, occurred_on, description, amount_cad, hst_cad")
+          .select("id, occurred_on, description, amount_cad, hst_cad, source_note")
           .eq("category_id", categoryId)
           .is("archived_at", null),
         supabase
           .from("card_transactions")
           .select(
-            "id, transaction_date, merchant, amount_cad, hst_cad, excluded",
+            "id, transaction_date, merchant, amount_cad, hst_cad, excluded, source_note",
           )
           .eq("category_id", categoryId)
           .is("archived_at", null),
         supabase
           .from("recurring_costs")
-          .select("id, name, amount_cad, hst_cad, frequency")
+          .select("id, name, amount_cad, hst_cad, frequency, source_note")
           .eq("category_id", categoryId)
           .is("archived_at", null),
       ])
@@ -51,7 +51,7 @@ async function Miscellaneous() {
   return (
     <div className="mx-auto flex w-full max-w-3xl flex-col gap-4">
       <h1 className="font-serif text-3xl text-ink">Miscellaneous</h1>
-      <FinanceTabs current="miscellaneous" />
+      <FinanceTabs />
       <p className="text-sm text-muted">
         Lines in the Miscellaneous category. Pre-tax and HST stay separate.
       </p>
@@ -64,12 +64,14 @@ async function Miscellaneous() {
             description: string;
             amount_cad: number | string;
             hst_cad: number | string;
+            source_note: string;
           }[]
         ).map((row) => ({
           id: row.id,
           label: `${row.occurred_on ?? "Date unknown"} · ${row.description}`,
           amount: Number(row.amount_cad),
           hst: Number(row.hst_cad),
+          source: row.source_note,
         }))}
       />
       <h2 className="font-serif text-2xl">Card</h2>
@@ -82,12 +84,14 @@ async function Miscellaneous() {
             amount_cad: number | string;
             hst_cad: number | string;
             excluded: boolean;
+            source_note: string;
           }[]
         ).map((row) => ({
           id: row.id,
           label: `${row.transaction_date} · ${row.merchant}${row.excluded ? " · excluded" : ""}`,
           amount: Number(row.amount_cad),
           hst: Number(row.hst_cad),
+          source: row.source_note,
         }))}
       />
       <h2 className="font-serif text-2xl">Recurring</h2>
@@ -99,12 +103,14 @@ async function Miscellaneous() {
             amount_cad: number | string;
             hst_cad: number | string;
             frequency: string;
+            source_note: string;
           }[]
         ).map((row) => ({
           id: row.id,
           label: `${row.name} · ${row.frequency}`,
           amount: Number(row.amount_cad),
           hst: Number(row.hst_cad),
+          source: row.source_note,
         }))}
       />
     </div>
@@ -114,14 +120,15 @@ async function Miscellaneous() {
 function Lines({
   rows,
 }: {
-  rows: { id: number; label: string; amount: number; hst: number }[];
+  rows: { id: number; label: string; amount: number; hst: number; source?: string }[];
 }) {
   if (rows.length === 0) return <p className="text-sm text-muted">None.</p>;
   return (
     <ul className="flex flex-col gap-2 text-sm">
       {rows.map((row) => (
         <li key={row.id}>
-          {row.label} · {money(row.amount)} pre-tax · HST {money(row.hst)}
+          {row.label} · {money(row.amount)} pre-tax · HST {money(row.hst)} ·
+          Source: {row.source?.trim() ? row.source : "Not recorded"}
         </li>
       ))}
     </ul>

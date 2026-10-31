@@ -39,7 +39,7 @@ async function Cards({ searchParams }: PageProps) {
   let query = supabase
     .from("card_transactions")
     .select(
-      "id, statement_period, transaction_date, merchant, amount_cad, hst_cad, original_currency, original_amount, category_id, notes, is_startup, excluded, purchase_line_id",
+      "id, statement_period, transaction_date, merchant, amount_cad, hst_cad, original_currency, original_amount, category_id, notes, source_note, is_startup, excluded, purchase_line_id",
     )
     .is("archived_at", null)
     .order("transaction_date", { ascending: false })
@@ -62,6 +62,7 @@ async function Cards({ searchParams }: PageProps) {
     original_amount: number | string | null;
     category_id: number | null;
     notes: string | null;
+    source_note: string;
     is_startup: boolean;
     excluded: boolean;
     purchase_line_id: number | null;
@@ -77,7 +78,7 @@ async function Cards({ searchParams }: PageProps) {
   return (
     <div className="mx-auto flex w-full max-w-3xl flex-col gap-4">
       <h1 className="font-serif text-3xl text-ink">Card transactions</h1>
-      <FinanceTabs current="cards" />
+      <FinanceTabs />
       {notice === "saved" ? <StatusNote>Saved.</StatusNote> : null}
       {notice === "failed" ? (
         <StatusNote tone="error">
@@ -197,6 +198,12 @@ async function Cards({ searchParams }: PageProps) {
                 name="notes"
                 defaultValue={row.notes ?? ""}
                 placeholder="Note"
+                className="min-h-12 rounded-xl border border-line px-3"
+              />
+              <input
+                name="sourceNote"
+                defaultValue={row.source_note ?? ""}
+                placeholder="Source"
                 className="min-h-12 rounded-xl border border-line px-3"
               />
               <input

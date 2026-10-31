@@ -1,28 +1,32 @@
 import Link from "next/link";
 
 const TABS = [
-  { href: "/finances", label: "Overview", id: "overview" },
-  { href: "/finances/startup", label: "Startup", id: "startup" },
-  { href: "/finances/running", label: "Running", id: "running" },
-  { href: "/finances/payroll", label: "Payroll", id: "payroll" },
-  { href: "/finances/cards", label: "Card", id: "cards" },
+  { href: "/finances", label: "Spend to date", id: "spend" },
+  { href: "/finances/cost", label: "Startup vs cost", id: "cost" },
   {
-    href: "/finances/miscellaneous",
-    label: "Miscellaneous",
-    id: "miscellaneous",
+    href: "/finances/projection",
+    label: "12-month projection",
+    id: "projection",
+  },
+  { href: "/finances/people", label: "People and invoices", id: "people" },
+  { href: "/finances/contracts", label: "Contracts", id: "contracts" },
+  { href: "/finances/expenses", label: "Expense log", id: "expenses" },
+  {
+    href: "/finances/equipment",
+    label: "Equipment and lease",
+    id: "equipment",
   },
   {
     href: "/finances/outside-costumes",
     label: "Outside costumes",
     id: "outside",
   },
+  { href: "/finances/todos", label: "To-dos", id: "todos" },
 ] as const;
 
-export function FinanceTabs({
-  current,
-}: {
-  current: (typeof TABS)[number]["id"];
-}) {
+export type FinanceTab = (typeof TABS)[number]["id"];
+
+export function FinanceTabs({ current }: { current?: FinanceTab }) {
   return (
     <nav className="flex flex-wrap gap-2" aria-label="Finances">
       {TABS.map((tab) => (

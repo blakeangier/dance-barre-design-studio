@@ -12,6 +12,9 @@ import { StatusNote } from "@/components/shell/status-note";
 import { firstQueryValue } from "@/lib/auth/notices";
 import { money } from "@/lib/inventory/format";
 import { outsideCostumeSpend } from "@/lib/finances/outside-costumes";
+import { outsideCostumeSummary } from "@/lib/finances/workbook";
+import { saveOutsideCostumeFlags } from "@/app/(workspace)/finances/workbook-actions";
+import { SourceLine } from "@/components/finances/frame";
 import { createClient } from "@/lib/supabase/server";
 
 export const metadata = { title: "Outside costumes" };
@@ -35,6 +38,11 @@ type PurchaseRow = {
   reimbursement: boolean;
   reimbursement_note: string | null;
   is_refund: boolean;
+  vendor_type: string | null;
+  flag_duplicate: boolean;
+  flag_canceled: boolean;
+  flag_owing: boolean;
+  source_note: string;
   programs: { name: string } | { name: string }[] | null;
 };
 
@@ -69,7 +77,7 @@ async function OutsideCostumes({ searchParams }: PageProps) {
     supabase
       .from("outside_costume_purchases")
       .select(
-        "id, program_id, source_tab, purchased_on, raw_date, payment_method, vendor, item_description, amount, currency, arrival_status, reimbursement, reimbursement_note, is_refund, programs(name)",
+        "id, program_id, source_tab, purchased_on, raw_date, payment_method, vendor, item_description, amount, currency, arrival_status, reimbursement, reimbursement_note, is_refund, vendor_type, flag_duplicate, flag_canceled, flag_owing, source_note, programs(name)",
       )
       .is("archived_at", null)
       .order("purchased_on", { ascending: false, nullsFirst: true }),
@@ -101,16 +109,32 @@ async function OutsideCostumes({ searchParams }: PageProps) {
     }
     return true;
   });
-  const spend = outsideCostumeSpend(
-    purchases.map((row) => ({
+  const summary = outsideCostumeSummary(
+    allPurchases.map((row) => ({
+      program: programName(row.programs),
+      vendorType: row.vendor_type ?? "",
       vendor: row.vendor,
       amount: row.amount === null ? null : Number(row.amount),
       currency: row.currency === "USD" ? "USD" : "CAD",
-      purchasedOn: row.purchased_on,
-      rawDate: row.raw_date,
       refund: row.is_refund,
+      duplicate: row.flag_duplicate,
+      canceled: row.flag_canceled,
+      owing: row.flag_owing,
       archived: false,
     })),
+  );
+  const spend = outsideCostumeSpend(
+    purchases
+      .filter((row) => !row.flag_duplicate && !row.flag_canceled)
+      .map((row) => ({
+        vendor: row.vendor,
+        amount: row.amount === null ? null : Number(row.amount),
+        currency: row.currency === "USD" ? "USD" : "CAD",
+        purchasedOn: row.purchased_on,
+        rawDate: row.raw_date,
+        refund: row.is_refund,
+        archived: false,
+      })),
   );
   const budgets = (budgetsResult.data ?? []) as {
     id: number;
@@ -216,6 +240,19 @@ async function OutsideCostumes({ searchParams }: PageProps) {
             Save budget
           </button>
         </form>
+      </section>
+      <section className="text-sm">
+        <h2 className="font-serif text-2xl text-ink">Summary</h2>
+        <p>
+          Owing {money(summary.owing)}. Canceled and duplicate lines are left
+          out.
+        </p>
+        <h3 className="mt-2 font-medium">By program</h3>
+        <SummaryList rows={summary.byProgram} />
+        <h3 className="mt-2 font-medium">By vendor type</h3>
+        <SummaryList rows={summary.byVendorType} />
+        <h3 className="mt-2 font-medium">By vendor</h3>
+        <SummaryList rows={summary.byVendor} />
       </section>
       <section className="text-sm">
         <h2 className="font-serif text-2xl text-ink">Totals</h2>
@@ -324,6 +361,59 @@ async function OutsideCostumes({ searchParams }: PageProps) {
                   {missingDate ? "Missing date." : ""}
                 </p>
               ) : null}
+              {row.flag_duplicate || row.flag_canceled || row.flag_owing ? (
+                <p className="font-medium text-ink">
+                  {row.flag_duplicate ? "Duplicate. " : ""}
+                  {row.flag_canceled ? "Canceled. " : ""}
+                  {row.flag_owing ? "Owing." : ""}
+                </p>
+              ) : null}
+              <SourceLine note={row.source_note} />
+              <form
+                action={saveOutsideCostumeFlags}
+                className="mt-2 grid gap-2"
+              >
+                <input type="hidden" name="id" value={row.id} />
+                <input
+                  name="vendorType"
+                  defaultValue={row.vendor_type ?? ""}
+                  placeholder="Vendor type"
+                  className="min-h-12 rounded-xl border border-line px-3"
+                />
+                <input
+                  name="sourceNote"
+                  defaultValue={row.source_note ?? ""}
+                  placeholder="Source"
+                  className="min-h-12 rounded-xl border border-line px-3"
+                />
+                <label className="flex min-h-11 items-center gap-2">
+                  <input
+                    type="checkbox"
+                    name="flagDuplicate"
+                    defaultChecked={row.flag_duplicate}
+                  />
+                  Duplicate
+                </label>
+                <label className="flex min-h-11 items-center gap-2">
+                  <input
+                    type="checkbox"
+                    name="flagCanceled"
+                    defaultChecked={row.flag_canceled}
+                  />
+                  Canceled
+                </label>
+                <label className="flex min-h-11 items-center gap-2">
+                  <input
+                    type="checkbox"
+                    name="flagOwing"
+                    defaultChecked={row.flag_owing}
+                  />
+                  Owing
+                </label>
+                <button type="submit" className="min-h-11 text-sm font-medium">
+                  Save flags
+                </button>
+              </form>
             </li>
           );
         })}
@@ -347,6 +437,24 @@ async function OutsideCostumes({ searchParams }: PageProps) {
         </button>
       </form>
     </div>
+  );
+}
+
+function SummaryList({
+  rows,
+}: {
+  rows: { name: string; cad: number; usd: number }[];
+}) {
+  if (rows.length === 0) return <p className="text-muted">None yet.</p>;
+  return (
+    <ul>
+      {rows.map((row) => (
+        <li key={row.name}>
+          {row.name} · {money(row.cad)}
+          {row.usd ? ` · USD ${row.usd}` : ""}
+        </li>
+      ))}
+    </ul>
   );
 }
 

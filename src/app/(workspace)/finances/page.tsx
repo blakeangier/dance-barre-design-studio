@@ -1,485 +1,396 @@
 import Link from "next/link";
 import { Suspense } from "react";
-import { FinanceTabs } from "@/components/finances/tabs";
+import {
+  saveCommittedItem,
+  saveFundingLine,
+  saveSpendLine,
+} from "@/app/(workspace)/finances/workbook-actions";
+import { ownerGate } from "@/app/(workspace)/finances/guard";
+import {
+  ArchiveForm,
+  FinanceFrame,
+  SourceLine,
+  financeButton,
+  financeField,
+} from "@/components/finances/frame";
 import { LoadingLine } from "@/components/shell/loading-line";
 import { NoAccess } from "@/components/shell/no-access";
-import { ownerGate } from "@/app/(workspace)/finances/guard";
+import { firstQueryValue } from "@/lib/auth/notices";
 import { money } from "@/lib/inventory/format";
-import { todayInToronto } from "@/lib/inventory/usage";
 import {
-  averageMonthlyPayroll,
-  contractProgress,
-  monthlyAmount,
-  monthlyCategorySpend,
-  projectRunningYear,
-  recurringCoveredByContract,
-  startupSummary,
-  variableMonthly,
-  type RunMode,
-  type Frequency,
-} from "@/lib/finances/money";
-import { outsideCostumeSpend } from "@/lib/finances/outside-costumes";
+  PAID_FROM,
+  SPEND_SECTIONS,
+  fundingCheck,
+  labelOf,
+  localFinanceHref,
+  spendToDate,
+  type SpendSection,
+} from "@/lib/finances/workbook";
 import { createClient } from "@/lib/supabase/server";
 
-export const metadata = { title: "Finances" };
+export const metadata = { title: "Spend to date" };
 
-export default function FinancesPage() {
+type PageProps = {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+};
+
+export default function FinancesPage(props: PageProps) {
   return (
     <Suspense fallback={<LoadingLine />}>
-      <Overview />
+      <Spend searchParams={props.searchParams} />
     </Suspense>
   );
 }
 
-type CategoryLink = { name: string; excludes_from_totals: boolean };
-
-function categoryOf(
-  value: CategoryLink | CategoryLink[] | null,
-): CategoryLink | null {
-  if (!value) return null;
-  return Array.isArray(value) ? (value[0] ?? null) : value;
-}
-
-async function Overview() {
+async function Spend({ searchParams }: PageProps) {
   const gate = await ownerGate();
   if (!gate.ok) return <NoAccess reason={gate.reason} />;
-  const today = todayInToronto();
+  const notice = firstQueryValue((await searchParams).notice);
   const supabase = await createClient();
-  const [
-    startupResult,
-    recurringResult,
-    cardResult,
-    payrollResult,
-    seasonResult,
-    settingsResult,
-    contractResult,
-    paymentResult,
-    outsideResult,
-  ] = await Promise.all([
+  const [spentResult, committedResult, fundingResult] = await Promise.all([
     supabase
-      .from("startup_costs")
+      .from("finance_spend_lines")
       .select(
-        "occurred_on, amount_cad, hst_cad, source, finance_categories(name, excludes_from_totals)",
+        "id, section, label, amount, detail_href, sort_order, source_note",
       )
-      .is("archived_at", null),
+      .is("archived_at", null)
+      .order("sort_order"),
     supabase
-      .from("recurring_costs")
+      .from("finance_committed_items")
       .select(
-        "amount_cad, hst_cad, frequency, runs, contractor_profile_id, start_date, end_date, finance_categories(name, excludes_from_totals)",
+        "id, label, amount, detail_href, counts_as_startup, sort_order, source_note",
       )
-      .is("archived_at", null),
+      .is("archived_at", null)
+      .order("sort_order"),
     supabase
-      .from("card_transactions")
-      .select(
-        "transaction_date, amount_cad, hst_cad, excluded, is_startup, finance_categories(name, excludes_from_totals)",
-      )
-      .is("archived_at", null),
-    supabase
-      .from("payroll_actuals")
-      .select(
-        "period_start, period_end, gross_cad, employer_cpp_cad, employer_ei_cad",
-      )
-      .is("archived_at", null),
-    supabase
-      .from("production_seasons")
-      .select("start_date, end_date")
-      .is("archived_at", null),
-    supabase
-      .from("finance_run_settings")
-      .select("payroll_runs, variable_spend_runs")
-      .eq("id", true)
-      .maybeSingle(),
-    supabase
-      .from("contractor_contracts")
-      .select(
-        "id, contractor_id, total_amount_cad, hst_amount_cad, start_date, end_date, payout",
-      )
-      .is("archived_at", null),
-    supabase
-      .from("contractor_payments")
-      .select("contract_id, paid_on, amount_cad, hst_cad")
-      .is("archived_at", null),
-    supabase
-      .from("outside_costume_purchases")
-      .select("amount, currency, is_refund")
-      .is("archived_at", null),
+      .from("finance_funding_lines")
+      .select("id, paid_from, label, amount, sort_order, source_note")
+      .is("archived_at", null)
+      .order("sort_order"),
   ]);
-  const startup = (startupResult.data ?? []) as {
-    occurred_on: string | null;
-    amount_cad: number | string;
-    hst_cad: number | string;
-    source: string;
-    finance_categories: CategoryLink | CategoryLink[] | null;
-  }[];
-  const recurringRows = (
-    (recurringResult.data ?? []) as {
-      amount_cad: number | string;
-      hst_cad: number | string;
-      frequency: Frequency;
-      runs: RunMode | null;
-      contractor_profile_id: string | null;
-      start_date: string;
-      end_date: string | null;
-      finance_categories: CategoryLink | CategoryLink[] | null;
+  const spentRows = (
+    (spentResult.data ?? []) as {
+      id: number;
+      section: SpendSection;
+      label: string;
+      amount: number | string;
+      detail_href: string | null;
+      source_note: string;
     }[]
-  ).filter(
-    (row) =>
-      row.start_date <= today &&
-      (row.end_date === null || row.end_date >= today) &&
-      !categoryOf(row.finance_categories)?.excludes_from_totals &&
-      !recurringCoveredByContract(
-        row.contractor_profile_id,
-        new Set(
-          ((contractResult.data ?? []) as { contractor_id: string }[]).map(
-            (contract) => contract.contractor_id,
-          ),
-        ),
-      ),
-  );
-  const cards = (cardResult.data ?? []) as {
-    transaction_date: string;
-    amount_cad: number | string;
-    hst_cad: number | string;
-    excluded: boolean;
-    is_startup: boolean;
-    finance_categories: CategoryLink | CategoryLink[] | null;
+  ).map((row) => ({
+    id: row.id,
+    section: row.section,
+    label: row.label,
+    amount: Number(row.amount),
+    href: row.detail_href,
+    sourceNote: row.source_note,
+  }));
+  const spent = spendToDate(spentRows);
+  const committed = (committedResult.data ?? []) as {
+    id: number;
+    label: string;
+    amount: number | string;
+    detail_href: string | null;
+    counts_as_startup: boolean;
+    source_note: string;
   }[];
-  const variable = variableMonthly(
-    cards.map((row) => ({
-      date: row.transaction_date,
-      amount: Number(row.amount_cad),
-      hst: Number(row.hst_cad),
-      excluded: row.excluded,
-      startup: row.is_startup,
-      categoryExcluded: Boolean(
-        categoryOf(row.finance_categories)?.excludes_from_totals,
-      ),
-    })),
-    today,
+  const committedTotal = committed.reduce(
+    (sum, row) => sum + Number(row.amount),
+    0,
   );
-  const payroll = averageMonthlyPayroll(
-    (
-      (payrollResult.data ?? []) as {
-        period_start: string;
-        period_end: string;
-        gross_cad: number | string;
-        employer_cpp_cad: number | string;
-        employer_ei_cad: number | string;
-      }[]
-    ).map((row) => ({
-      start: row.period_start,
-      end: row.period_end,
-      gross: Number(row.gross_cad),
-      cpp: Number(row.employer_cpp_cad),
-      ei: Number(row.employer_ei_cad),
-    })),
-  );
-  const startupLines = [
-    ...startup.map((row) => ({
-      category: categoryOf(row.finance_categories)?.name ?? "Uncategorized",
-      pretax: Number(row.amount_cad),
-      hst: Number(row.hst_cad),
-      source:
-        row.source === "card_statement"
-          ? ("card" as const)
-          : ("manual" as const),
-      excluded: Boolean(
-        categoryOf(row.finance_categories)?.excludes_from_totals,
-      ),
-    })),
-    ...cards
-      .filter((row) => row.is_startup)
-      .map((row) => ({
-        category: categoryOf(row.finance_categories)?.name ?? "Uncategorized",
-        pretax: Number(row.amount_cad),
-        hst: Number(row.hst_cad),
-        source: "card" as const,
-        excluded:
-          row.excluded ||
-          Boolean(categoryOf(row.finance_categories)?.excludes_from_totals),
-      })),
-  ];
-  const startupTotal = startupSummary(startupLines);
-  const runSettings = settingsResult.data as {
-    payroll_runs: RunMode;
-    variable_spend_runs: RunMode;
-  } | null;
-  const projection = projectRunningYear({
-    today,
-    recurring: recurringRows.map((row) => ({
-      monthlyPretax: monthlyAmount(Number(row.amount_cad), row.frequency),
-      monthlyHst: monthlyAmount(Number(row.hst_cad), row.frequency),
-      runs: row.runs === "production_only" ? "production_only" : "year_round",
-      category: categoryOf(row.finance_categories)?.name ?? "Uncategorized",
-    })),
-    payrollMonthly: payroll,
-    payrollRuns:
-      runSettings?.payroll_runs === "year_round"
-        ? "year_round"
-        : "production_only",
-    variableMonthly: variable.pretax,
-    variableHstMonthly: variable.hst,
-    variableRuns:
-      runSettings?.variable_spend_runs === "year_round"
-        ? "year_round"
-        : "production_only",
-    seasons: (
-      (seasonResult.data ?? []) as { start_date: string; end_date: string }[]
-    ).map((season) => ({ start: season.start_date, end: season.end_date })),
-    contracts: (
-      (contractResult.data ?? []) as {
-        id: number;
-        total_amount_cad: number | string;
-        hst_amount_cad: number | string;
-        start_date: string;
-        end_date: string;
-        payout: "spread" | "lump_sums";
-      }[]
-    ).map((contract) => {
-      const payments = (
-        (paymentResult.data ?? []) as {
-          contract_id: number;
-          paid_on: string | null;
-          amount_cad: number | string;
-          hst_cad: number | string;
-        }[]
-      ).filter((payment) => payment.contract_id === contract.id);
-      const progress = contractProgress(
-        Number(contract.total_amount_cad),
-        Number(contract.hst_amount_cad),
-        payments.map((payment) => ({
-          paidOn: payment.paid_on,
-          amount: Number(payment.amount_cad),
-          hst: Number(payment.hst_cad),
-        })),
-        today,
-      );
-      return {
-        start: contract.start_date,
-        end: contract.end_date,
-        payout: contract.payout,
-        remainingPretax: progress.remaining,
-        remainingHst: progress.remainingHst,
-        futurePayments: payments.flatMap((payment) =>
-          payment.paid_on && payment.paid_on > today
-            ? [
-                {
-                  date: payment.paid_on,
-                  pretax: Number(payment.amount_cad),
-                  hst: Number(payment.hst_cad),
-                },
-              ]
-            : [],
-        ),
-      };
-    }),
-  });
-  const outside = outsideCostumeSpend(
-    (
-      (outsideResult.data ?? []) as {
-        amount: number | string | null;
-        currency: "CAD" | "USD";
-        is_refund: boolean;
-      }[]
-    ).map((row) => ({
-      vendor: "",
-      amount: row.amount === null ? null : Number(row.amount),
-      currency: row.currency === "USD" ? "USD" : "CAD",
-      purchasedOn: null,
-      rawDate: null,
-      refund: row.is_refund,
-      archived: false,
-    })),
-  );
-  const chart = monthlyCategorySpend([
-    ...startup.flatMap((row) => {
-      if (!row.occurred_on) return [];
-      return [
-        {
-          month: row.occurred_on.slice(0, 7),
-          category: categoryOf(row.finance_categories)?.name ?? "Uncategorized",
-          pretax: Number(row.amount_cad),
-          hst: Number(row.hst_cad),
-          excluded: Boolean(
-            categoryOf(row.finance_categories)?.excludes_from_totals,
-          ),
-          startup: false,
-        },
-      ];
-    }),
-    ...cards
-      .filter((row) => !row.excluded)
-      .map((row) => ({
-        month: row.transaction_date.slice(0, 7),
-        category: categoryOf(row.finance_categories)?.name ?? "Uncategorized",
-        pretax: Number(row.amount_cad),
-        hst: Number(row.hst_cad),
-        excluded: Boolean(
-          categoryOf(row.finance_categories)?.excludes_from_totals,
-        ),
-        startup: row.is_startup,
-      })),
-  ]);
-  const widest = Math.max(1, ...chart.map((month) => month.pretax));
+  const fundingRows = (
+    (fundingResult.data ?? []) as {
+      id: number;
+      paid_from: string;
+      label: string;
+      amount: number | string;
+      source_note: string;
+    }[]
+  ).map((row) => ({
+    id: row.id,
+    paidFrom: row.paid_from,
+    label: row.label,
+    amount: Number(row.amount),
+    sourceNote: row.source_note,
+  }));
+  const funding = fundingCheck(spent.total, fundingRows);
 
   return (
-    <div className="mx-auto flex w-full max-w-3xl flex-col gap-4">
-      <h1 className="font-serif text-3xl text-ink">Finances</h1>
-      <FinanceTabs current="overview" />
-      <p className="text-sm text-muted">
-        Amounts are CAD. Pre-tax and HST are separate. Not a Design Studio cost
-        is left out.
-      </p>
-      <section className="grid gap-3 sm:grid-cols-2">
-        <figure className="rounded-2xl border border-line bg-card p-4">
-          <figcaption className="text-sm text-muted">
-            Startup, pre-tax
-          </figcaption>
-          <p className="font-serif text-3xl text-ink">
-            {money(startupTotal.pretax)}
-          </p>
-          <p className="text-sm text-muted">HST {money(startupTotal.hst)}</p>
-          <p className="text-sm text-muted">
-            Manual {money(startupTotal.manual)} · Card{" "}
-            {money(startupTotal.card)}
-          </p>
-          <ul className="mt-2 flex flex-col gap-1 text-sm">
-            {startupTotal.byCategory.map((category) => (
-              <li key={category.category}>
-                {category.category} · {money(category.pretax)}
-                {category.manual > 0
-                  ? ` · manual ${money(category.manual)}`
-                  : ""}
-                {category.card > 0 ? ` · card ${money(category.card)}` : ""}
-              </li>
+    <FinanceFrame
+      title="Spend to date"
+      current="spend"
+      notice={notice}
+      lede="Amounts are the workbook lines. Each line keeps a source so you can see where the number came from."
+    >
+      <section className="flex flex-col gap-3">
+        <h2 className="font-serif text-2xl text-ink">Where the money went</h2>
+        {spent.sections.map((section) => (
+          <div key={section.section} className="overflow-x-auto">
+            <h3 className="font-medium text-ink">{section.title}</h3>
+            <table className="w-full min-w-[40rem] text-left text-sm">
+              <thead>
+                <tr className="text-muted">
+                  <th className="py-2 pr-3 font-medium">Label</th>
+                  <th className="py-2 pr-3 font-medium">Amount</th>
+                  <th className="py-2 pr-3 font-medium">% of total</th>
+                  <th className="py-2 pr-3 font-medium">Detail</th>
+                  <th className="py-2 font-medium">Source</th>
+                </tr>
+              </thead>
+              <tbody>
+                {section.rows.map((row, index) => {
+                  const href = localFinanceHref(row.href);
+                  const stored = spentRows.filter(
+                    (item) => item.section === section.section,
+                  )[index];
+                  return (
+                    <tr
+                      key={stored?.id ?? index}
+                      className="border-t border-line"
+                    >
+                      <td className="py-2 pr-3">{row.label}</td>
+                      <td className="py-2 pr-3">{money(row.amount)}</td>
+                      <td className="py-2 pr-3">{row.percent}%</td>
+                      <td className="py-2 pr-3">
+                        {href ? (
+                          <Link href={href} className="font-medium text-ink">
+                            Open
+                          </Link>
+                        ) : (
+                          "—"
+                        )}
+                      </td>
+                      <td className="py-2">
+                        <SourceLine note={row.sourceNote} />
+                        {stored ? (
+                          <ArchiveForm
+                            table="finance_spend_lines"
+                            id={stored.id}
+                            back="/finances"
+                          />
+                        ) : null}
+                      </td>
+                    </tr>
+                  );
+                })}
+                <tr className="border-t border-line font-medium">
+                  <td className="py-2 pr-3">Subtotal</td>
+                  <td className="py-2 pr-3">{money(section.subtotal)}</td>
+                  <td colSpan={3} />
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        ))}
+        <p className="font-serif text-3xl text-ink">
+          Grand total {money(spent.total)}
+        </p>
+        <form action={saveSpendLine} className="grid gap-2 sm:grid-cols-2">
+          <select name="section" className={financeField}>
+            {SPEND_SECTIONS.map(([value, label]) => (
+              <option key={value} value={value}>
+                {label}
+              </option>
             ))}
-          </ul>
-        </figure>
-        <figure className="rounded-2xl border border-line bg-card p-4">
-          <figcaption className="text-sm text-muted">
-            Cost per production month, pre-tax
-          </figcaption>
-          <p className="font-serif text-3xl text-ink">
-            {money(projection.costPerProductionMonth)}
-          </p>
-          <p className="text-sm text-muted">
-            HST {money(projection.costPerProductionMonthHst)} in a full
-            production month. Payroll {money(payroll)} · card average{" "}
-            {money(variable.pretax)}. Those two default to production days only.
-          </p>
-        </figure>
-        <figure className="rounded-2xl border border-line bg-card p-4">
-          <figcaption className="text-sm text-muted">
-            Next 12 months, pre-tax
-          </figcaption>
-          <p className="font-serif text-3xl text-ink">
-            {money(projection.yearPretax)}
-          </p>
-          <p className="text-sm text-muted">
-            In season {money(projection.seasonPretax)} · Off season{" "}
-            {money(projection.offSeasonPretax)}
-          </p>
-        </figure>
-        <figure className="rounded-2xl border border-line bg-card p-4">
-          <figcaption className="text-sm text-muted">
-            Startup beside the next year of running costs
-          </figcaption>
-          <p className="text-sm text-ink">
-            Startup {money(startupTotal.pretax)} · Projected running cost{" "}
-            {money(projection.yearPretax)}
-          </p>
-        </figure>
+          </select>
+          <input
+            name="label"
+            required
+            placeholder="Label"
+            className={financeField}
+          />
+          <input
+            name="amount"
+            required
+            inputMode="decimal"
+            placeholder="Amount"
+            className={financeField}
+          />
+          <input
+            name="detailHref"
+            placeholder="/finances/startup"
+            className={financeField}
+          />
+          <input
+            name="sourceNote"
+            placeholder="Source"
+            className={financeField}
+          />
+          <button type="submit" className={financeButton}>
+            Add spent line
+          </button>
+        </form>
       </section>
       <section className="flex flex-col gap-3">
-        <figure className="rounded-2xl border border-line bg-card p-4">
-          <figcaption className="text-sm text-muted">
-            Outside costumes
-          </figcaption>
-          <p className="text-sm text-ink">
-            Dance program costumes bought from other stores. This is not a
-            Design Studio startup or running cost.
-          </p>
-          <p className="mt-2 font-serif text-3xl text-ink">
-            {money(outside.cad)}
-          </p>
-          <p className="text-sm text-muted">
-            CAD spent · USD{" "}
-            {outside.usd.toLocaleString("en-CA", {
-              style: "currency",
-              currency: "USD",
-            })}
-          </p>
-          <Link
-            href="/finances/outside-costumes"
-            className="mt-2 inline-flex min-h-11 items-center text-sm font-medium text-ink"
-          >
-            Open outside costumes
-          </Link>
-        </figure>
-        <h2 className="font-serif text-2xl text-ink">Next 12 months</h2>
-        <ul className="flex flex-col gap-1 text-sm">
-          {projection.months.map((month) => (
-            <li key={month.month}>
-              {month.month} · {money(month.pretax)} · {month.productionDays} of{" "}
-              {month.days} production days
-            </li>
-          ))}
-        </ul>
         <h2 className="font-serif text-2xl text-ink">
-          Monthly spend by category
+          Committed but not yet paid
         </h2>
-        <p className="text-sm text-muted">
-          Every card line is here unless it is excluded. Startup charges are
-          marked. A startup estimate with no date stays in the startup total and
-          is not placed in a month. The run-rate card average still leaves
-          startup charges out.
-        </p>
-        {chart.length === 0 ? (
-          <p className="text-sm text-muted">No spend recorded yet.</p>
-        ) : (
-          chart.map((month) => (
-            <div key={month.month} className="flex flex-col gap-1">
-              <p className="text-sm font-medium text-ink">
-                {month.month} · {money(month.pretax)} pre-tax · HST{" "}
-                {money(month.hst)}
-              </p>
-              {month.byCategory.map((category) => {
-                const running = category.pretax - category.startupPretax;
+        <div className="overflow-x-auto">
+          <table className="w-full min-w-[40rem] text-left text-sm">
+            <thead>
+              <tr className="text-muted">
+                <th className="py-2 pr-3 font-medium">Label</th>
+                <th className="py-2 pr-3 font-medium">Amount</th>
+                <th className="py-2 pr-3 font-medium">Detail</th>
+                <th className="py-2 font-medium">Source</th>
+              </tr>
+            </thead>
+            <tbody>
+              {committed.map((row) => {
+                const href = localFinanceHref(row.detail_href);
                 return (
-                  <div
-                    key={category.category}
-                    className="flex items-center gap-2 text-sm"
-                  >
-                    <span className="w-40 shrink-0 text-muted">
-                      {category.category}
-                    </span>
-                    {running > 0 ? (
-                      <span
-                        className="h-3 rounded-full bg-teal"
-                        style={{
-                          width: `${Math.max(4, (running / widest) * 100)}%`,
-                        }}
+                  <tr key={row.id} className="border-t border-line">
+                    <td className="py-2 pr-3">
+                      {row.label}
+                      {row.counts_as_startup ? " · startup" : ""}
+                    </td>
+                    <td className="py-2 pr-3">{money(Number(row.amount))}</td>
+                    <td className="py-2 pr-3">
+                      {href ? (
+                        <Link href={href} className="font-medium text-ink">
+                          Open
+                        </Link>
+                      ) : (
+                        "—"
+                      )}
+                    </td>
+                    <td className="py-2">
+                      <SourceLine note={row.source_note} />
+                      <ArchiveForm
+                        table="finance_committed_items"
+                        id={row.id}
+                        back="/finances"
                       />
-                    ) : null}
-                    {category.startupPretax > 0 ? (
-                      <span
-                        className="h-3 rounded-full bg-orange"
-                        style={{
-                          width: `${Math.max(4, (category.startupPretax / widest) * 100)}%`,
-                        }}
-                      />
-                    ) : null}
-                    <span>
-                      {money(category.pretax)}
-                      {category.startupPretax > 0 ? " · startup" : ""}
-                    </span>
-                  </div>
+                    </td>
+                  </tr>
                 );
               })}
-            </div>
-          ))
-        )}
+              <tr className="border-t border-line font-medium">
+                <td className="py-2 pr-3">Total committed</td>
+                <td className="py-2">{money(committedTotal)}</td>
+                <td colSpan={2} />
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <form action={saveCommittedItem} className="grid gap-2 sm:grid-cols-2">
+          <input
+            name="label"
+            required
+            placeholder="Label"
+            className={financeField}
+          />
+          <input
+            name="amount"
+            required
+            inputMode="decimal"
+            placeholder="Amount"
+            className={financeField}
+          />
+          <input
+            name="detailHref"
+            placeholder="/finances/contracts"
+            className={financeField}
+          />
+          <input
+            name="sourceNote"
+            placeholder="Source"
+            className={financeField}
+          />
+          <label className="flex min-h-11 items-center gap-2 text-sm">
+            <input type="checkbox" name="countsAsStartup" />
+            Counts toward startup still owed
+          </label>
+          <button type="submit" className={financeButton}>
+            Add committed line
+          </button>
+        </form>
       </section>
-    </div>
+      <section className="flex flex-col gap-3">
+        <h2 className="font-serif text-2xl text-ink">
+          Where the money came from
+        </h2>
+        <div className="overflow-x-auto">
+          <table className="w-full min-w-[40rem] text-left text-sm">
+            <thead>
+              <tr className="text-muted">
+                <th className="py-2 pr-3 font-medium">Paid from</th>
+                <th className="py-2 pr-3 font-medium">Amount</th>
+                <th className="py-2 pr-3 font-medium">%</th>
+                <th className="py-2 font-medium">Source</th>
+              </tr>
+            </thead>
+            <tbody>
+              {funding.rows.map((row, index) => {
+                const stored = fundingRows[index];
+                return (
+                  <tr
+                    key={stored?.id ?? index}
+                    className="border-t border-line"
+                  >
+                    <td className="py-2 pr-3">
+                      {labelOf(PAID_FROM, row.paidFrom)} · {row.label}
+                    </td>
+                    <td className="py-2 pr-3">{money(row.amount)}</td>
+                    <td className="py-2 pr-3">{row.percent}%</td>
+                    <td className="py-2">
+                      <SourceLine note={row.sourceNote} />
+                      {stored ? (
+                        <ArchiveForm
+                          table="finance_funding_lines"
+                          id={stored.id}
+                          back="/finances"
+                        />
+                      ) : null}
+                    </td>
+                  </tr>
+                );
+              })}
+              <tr className="border-t border-line font-medium">
+                <td className="py-2 pr-3">
+                  Check · must equal {money(spent.total)} spent
+                </td>
+                <td className="py-2 pr-3">{money(funding.total)}</td>
+                <td colSpan={2} className="py-2">
+                  {funding.balances
+                    ? "Balances"
+                    : `Off by ${money(funding.difference)}`}
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <form action={saveFundingLine} className="grid gap-2 sm:grid-cols-2">
+          <select name="paidFrom" className={financeField}>
+            {PAID_FROM.map(([value, label]) => (
+              <option key={value} value={value}>
+                {label}
+              </option>
+            ))}
+          </select>
+          <input
+            name="label"
+            required
+            placeholder="Card ending or description"
+            className={financeField}
+          />
+          <input
+            name="amount"
+            required
+            inputMode="decimal"
+            placeholder="Amount"
+            className={financeField}
+          />
+          <input
+            name="sourceNote"
+            placeholder="Source"
+            className={financeField}
+          />
+          <button type="submit" className={financeButton}>
+            Add funding line
+          </button>
+        </form>
+      </section>
+    </FinanceFrame>
   );
 }

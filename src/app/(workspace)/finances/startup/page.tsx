@@ -42,7 +42,7 @@ async function Startup({ searchParams }: PageProps) {
     supabase
       .from("startup_costs")
       .select(
-        "id, occurred_on, description, vendor, category_id, amount_cad, hst_cad, notes, source, finance_categories(name)",
+        "id, occurred_on, description, vendor, category_id, amount_cad, hst_cad, notes, source, source_note, startup_share_percent, finance_categories(name)",
       )
       .is("archived_at", null)
       .order("occurred_on", { ascending: false, nullsFirst: true }),
@@ -58,6 +58,8 @@ async function Startup({ searchParams }: PageProps) {
     hst_cad: number | string;
     notes: string | null;
     source: string;
+    source_note: string;
+    startup_share_percent: number | string;
     finance_categories: { name: string } | { name: string }[] | null;
   }[];
   const groups = new Map<string, typeof rows>();
@@ -69,7 +71,7 @@ async function Startup({ searchParams }: PageProps) {
   return (
     <div className="mx-auto flex w-full max-w-3xl flex-col gap-4">
       <h1 className="font-serif text-3xl text-ink">Startup costs</h1>
-      <FinanceTabs current="startup" />
+      <FinanceTabs />
       {notice === "saved" ? <StatusNote>Saved.</StatusNote> : null}
       {notice === "failed" ? (
         <StatusNote tone="error">That did not save.</StatusNote>
@@ -99,6 +101,10 @@ async function Startup({ searchParams }: PageProps) {
                   {line.vendor ?? "No vendor"} ·{" "}
                   {money(Number(line.amount_cad))} pre-tax · HST{" "}
                   {money(Number(line.hst_cad))} · {line.source}
+                </p>
+                <p className="text-muted">
+                  Startup share {line.startup_share_percent}% · Source:{" "}
+                  {line.source_note?.trim() ? line.source_note : "Not recorded"}
                 </p>
                 {line.notes ? <p>{line.notes}</p> : null}
                 <form action={archiveStartupCost}>
@@ -190,6 +196,17 @@ function CostForm({ categories }: { categories: Category[] }) {
         <option value="manual">Manual</option>
         <option value="card_statement">Card statement</option>
       </select>
+      <input
+        name="startupShare"
+        inputMode="decimal"
+        placeholder="Startup share %, default 100"
+        className="min-h-12 rounded-xl border border-line px-3"
+      />
+      <input
+        name="sourceNote"
+        placeholder="Source"
+        className="min-h-12 rounded-xl border border-line px-3"
+      />
       <textarea
         name="notes"
         placeholder="Notes"

@@ -56,7 +56,7 @@ async function Running({ searchParams }: PageProps) {
     supabase
       .from("recurring_costs")
       .select(
-        "id, name, amount_cad, hst_cad, frequency, runs, start_date, end_date, notes, finance_categories(name)",
+        "id, name, amount_cad, hst_cad, frequency, runs, start_date, end_date, notes, source_note, finance_categories(name)",
       )
       .is("archived_at", null)
       .order("name"),
@@ -91,6 +91,7 @@ async function Running({ searchParams }: PageProps) {
     start_date: string;
     end_date: string | null;
     notes: string | null;
+    source_note: string;
     finance_categories: { name: string } | { name: string }[] | null;
   }[];
   const active = rows.filter(
@@ -120,7 +121,7 @@ async function Running({ searchParams }: PageProps) {
   return (
     <div className="mx-auto flex w-full max-w-3xl flex-col gap-4">
       <h1 className="font-serif text-3xl text-ink">Running costs</h1>
-      <FinanceTabs current="running" />
+      <FinanceTabs />
       {notice === "saved" ? <StatusNote>Saved.</StatusNote> : null}
       {notice === "failed" ? (
         <StatusNote tone="error">That did not save.</StatusNote>
@@ -340,6 +341,10 @@ async function Running({ searchParams }: PageProps) {
               {row.end_date ? ` to ${row.end_date}` : " onward"}
             </p>
             {row.notes ? <p>{row.notes}</p> : null}
+            <p className="text-muted">
+              Source:{" "}
+              {row.source_note?.trim() ? row.source_note : "Not recorded"}
+            </p>
             <form action={archiveRecurringCost}>
               <input type="hidden" name="id" value={row.id} />
               <button type="submit" className="min-h-11 text-sm font-medium">
