@@ -2,6 +2,7 @@ import { Suspense } from "react";
 import { updateMyDetails } from "@/app/(workspace)/actions";
 import { firstQueryValue, noticeText } from "@/lib/auth/notices";
 import { areasFor, ROLE_LABELS } from "@/lib/auth/permissions";
+import { AREA_ACCENT } from "@/lib/brand";
 import { gateArea } from "@/lib/auth/session";
 import { createClient } from "@/lib/supabase/server";
 import { LoadingLine } from "@/components/shell/loading-line";
@@ -46,10 +47,10 @@ async function HomeScreen({
     <div className="flex flex-col gap-5">
       {notice ? <StatusNote>{notice}</StatusNote> : null}
       <section>
-        <h1 className="font-serif text-3xl text-wine-deep">
+        <h1 className="font-serif text-3xl text-ink">
           Hello{gate.profile.fullName ? `, ${gate.profile.fullName}` : ""}
         </h1>
-        <p className="mt-2 max-w-prose leading-relaxed text-ink/80">
+        <p className="mt-2 max-w-prose leading-relaxed text-muted">
           You are signed in as {ROLE_LABELS[gate.profile.role]}
           {gate.profile.canPurchase ? " with purchasing access" : ""}. This
           first version is the foundation: sign-in, roles, and the locked tables
@@ -57,9 +58,9 @@ async function HomeScreen({
         </p>
       </section>
       <section className="rounded-2xl border border-line bg-card p-5">
-        <h2 className="font-serif text-2xl text-wine">Companies</h2>
+        <h2 className="font-serif text-2xl text-ink">Companies</h2>
         {error ? (
-          <p className="mt-2 text-sm text-ink/75">
+          <p className="mt-2 text-sm text-muted">
             The company list did not load. Apply the database migrations if you
             have not yet.
           </p>
@@ -68,7 +69,7 @@ async function HomeScreen({
             {(entities ?? []).map((entity) => (
               <li key={entity.id} className="text-sm">
                 <span className="font-medium">{entity.legal_name}</span>
-                <span className="text-ink/70">
+                <span className="text-muted">
                   {" "}
                   · {entity.short_name} · {entity.home_currency}
                 </span>
@@ -76,23 +77,23 @@ async function HomeScreen({
             ))}
           </ul>
         )}
-        <p className="mt-3 text-sm text-ink/70">
+        <p className="mt-3 text-sm text-muted">
           Both companies are CAD for now. Blake confirmed that in October 2026.
           USD can be chosen later if either company starts keeping its books
           that way. This app does not convert currencies.
         </p>
       </section>
       <section>
-        <h2 className="font-serif text-2xl text-wine">Your areas</h2>
+        <h2 className="font-serif text-2xl text-ink">Your areas</h2>
         <ul className="mt-3 grid gap-3 sm:grid-cols-2">
           {areas.map((area) => (
             <li key={area.id}>
               <Link
                 href={area.href}
-                className="block min-h-20 rounded-2xl border border-line bg-card p-4 hover:border-gold"
+                className={`block min-h-20 rounded-2xl border border-line border-l-4 bg-card p-4 hover:bg-paper ${AREA_ACCENT[area.id]}`}
               >
                 <span className="block font-medium">{area.label}</span>
-                <span className="mt-1 block text-sm text-ink/70">
+                <span className="mt-1 block text-sm text-muted">
                   {area.description}
                 </span>
               </Link>
@@ -101,7 +102,7 @@ async function HomeScreen({
         </ul>
       </section>
       <section className="rounded-2xl border border-line bg-card p-5">
-        <h2 className="font-serif text-2xl text-wine">Your details</h2>
+        <h2 className="font-serif text-2xl text-ink">Your details</h2>
         <form action={updateMyDetails} className="mt-3 flex flex-col gap-3">
           <label className="text-sm font-medium" htmlFor="fullName">
             Name
@@ -112,7 +113,7 @@ async function HomeScreen({
             defaultValue={gate.profile.fullName}
             required
             maxLength={120}
-            className="min-h-12 rounded-xl border border-line bg-cream px-3 text-base"
+            className="min-h-12 rounded-xl border border-line bg-card px-3 text-base text-ink"
           />
           <label className="text-sm font-medium" htmlFor="phone">
             Phone
@@ -124,11 +125,11 @@ async function HomeScreen({
             autoComplete="tel"
             defaultValue={gate.profile.phone ?? ""}
             maxLength={40}
-            className="min-h-12 rounded-xl border border-line bg-cream px-3 text-base"
+            className="min-h-12 rounded-xl border border-line bg-card px-3 text-base text-ink"
           />
           <button
             type="submit"
-            className="min-h-12 rounded-full bg-wine px-4 font-medium text-cream"
+            className="min-h-12 rounded-full bg-ink px-4 font-medium text-white"
           >
             Save details
           </button>

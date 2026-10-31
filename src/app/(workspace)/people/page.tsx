@@ -2,6 +2,7 @@ import { Suspense } from "react";
 import { updateAccess } from "@/app/(workspace)/people/actions";
 import { firstQueryValue, noticeText } from "@/lib/auth/notices";
 import { ROLE_LABELS, ROLES, type AppRole } from "@/lib/auth/permissions";
+import { ROLE_BADGE } from "@/lib/brand";
 import { gateArea } from "@/lib/auth/session";
 import { createClient } from "@/lib/supabase/server";
 import { LoadingLine } from "@/components/shell/loading-line";
@@ -75,8 +76,8 @@ async function PeopleScreen({
   return (
     <div className="flex flex-col gap-4">
       <div>
-        <h1 className="font-serif text-3xl text-wine-deep">People</h1>
-        <p className="mt-2 max-w-prose text-sm leading-relaxed text-ink/75">
+        <h1 className="font-serif text-3xl text-ink">People</h1>
+        <p className="mt-2 max-w-prose text-sm leading-relaxed text-muted">
           New accounts are created with the setup script, not from this screen.
           {isOwner
             ? " You can change someone else's role here. You cannot change your own."
@@ -85,7 +86,7 @@ async function PeopleScreen({
       </div>
       {notice ? <StatusNote>{notice}</StatusNote> : null}
       {error ? (
-        <p className="text-sm text-ink/75">The people list did not load.</p>
+        <p className="text-sm text-muted">The people list did not load.</p>
       ) : (
         <ul className="flex flex-col gap-3">
           {people.map((person) => (
@@ -97,10 +98,18 @@ async function PeopleScreen({
                 {person.full_name || "Unnamed"}
                 {!person.is_active ? " (off)" : ""}
               </p>
-              <p className="text-sm text-ink/70">{person.email}</p>
-              <p className="mt-1 text-sm">
-                {ROLE_LABELS[person.role]}
-                {person.can_purchase ? " · Purchasing" : ""}
+              <p className="text-sm text-muted">{person.email}</p>
+              <p className="mt-2 flex flex-wrap gap-1">
+                <span
+                  className={`rounded-full px-2 py-0.5 text-xs font-medium ${ROLE_BADGE[person.role]}`}
+                >
+                  {ROLE_LABELS[person.role]}
+                </span>
+                {person.can_purchase ? (
+                  <span className="rounded-full border border-purple bg-card px-2 py-0.5 text-xs font-medium text-ink">
+                    Purchasing
+                  </span>
+                ) : null}
               </p>
               {isOwner && person.id !== gate.profile.id ? (
                 <form
@@ -118,7 +127,7 @@ async function PeopleScreen({
                     id={`role-${person.id}`}
                     name="role"
                     defaultValue={person.role}
-                    className="min-h-12 rounded-xl border border-line bg-cream px-3 text-base"
+                    className="min-h-12 rounded-xl border border-line bg-card px-3 text-base text-ink"
                   >
                     {ROLES.map((role) => (
                       <option key={role} value={role}>
@@ -144,14 +153,14 @@ async function PeopleScreen({
                   </label>
                   <button
                     type="submit"
-                    className="min-h-12 rounded-full bg-wine px-4 font-medium text-cream"
+                    className="min-h-12 rounded-full bg-ink px-4 font-medium text-white"
                   >
                     Save access
                   </button>
                 </form>
               ) : null}
               {isOwner && person.id === gate.profile.id ? (
-                <p className="mt-3 text-sm text-ink/70">
+                <p className="mt-3 text-sm text-muted">
                   Ask the other owner to change your access.
                 </p>
               ) : null}

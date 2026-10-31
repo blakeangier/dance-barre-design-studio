@@ -3,19 +3,28 @@
 @theme inline {
   --font-sans: var(--font-outfit), "Segoe UI", sans-serif;
   --font-serif: var(--font-fraunces), Georgia, serif;
-  --color-cream: #f3ebe3;
-  --color-ink: #241816;
-  --color-wine: #6e2436;
-  --color-wine-deep: #4c1524;
-  --color-gold: #a68456;
-  --color-line: #e4d5c8;
-  --color-card: #fffbf7;
+  --color-ink: #202122;
+  --color-muted: #616161;
+  --color-paper: #f7f7f8;
+  --color-card: #ffffff;
+  --color-line: #e4e4e6;
+  --color-purple: #9c78b6;
+  --color-orange: #eba432;
+  --color-red: #e14b3d;
+  --color-pink: #ffa2a7;
+  --color-lime: #c4d160;
+  --color-teal: #78cfde;
 }
 
 body {
-  background: var(--color-cream);
+  background: var(--color-paper);
   color: var(--color-ink);
   font-family: var(--font-sans);
+}
+
+:focus-visible {
+  outline: 2px solid var(--color-purple);
+  outline-offset: 2px;
 }
 
 .sr-only {
@@ -38,4 +47,17 @@ body {
   overflow: visible;
   clip: auto;
   white-space: normal;
+}
+
+.brand-stripe {
+  height: 4px;
+  background: linear-gradient(
+    90deg,
+    #9c78b6,
+    #78cfde,
+    #c4d160,
+    #eba432,
+    #ffa2a7,
+    #e14b3d
+  );
 }

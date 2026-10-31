@@ -29,7 +29,7 @@ export function AppNav({ items }: { items: Item[] }) {
                 href={item.href}
                 aria-current={current ? "page" : undefined}
                 className={`inline-flex min-h-11 items-center rounded-full px-4 text-sm font-medium md:w-full md:rounded-xl ${
-                  current ? "bg-wine text-cream" : "text-ink hover:bg-cream"
+                  current ? "bg-ink text-white" : "text-ink hover:bg-paper"
                 }`}
               >
                 {item.label}

@@ -26,8 +26,8 @@ export function NoAccess({ reason }: { reason: string }) {
 
   return (
     <section className="rounded-2xl border border-line bg-card p-5">
-      <h1 className="font-serif text-3xl text-wine-deep">{copy?.title}</h1>
-      <p className="mt-3 max-w-prose leading-relaxed text-ink/80">
+      <h1 className="font-serif text-3xl text-ink">{copy?.title}</h1>
+      <p className="mt-3 max-w-prose leading-relaxed text-muted">
         {copy?.body}
       </p>
     </section>
