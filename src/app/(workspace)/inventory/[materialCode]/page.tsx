@@ -61,7 +61,7 @@ async function MaterialScreen({ params, searchParams }: DetailProps) {
   const { data: material } = await supabase
     .from("materials")
     .select(
-      "id, material_code, fabric_name, colour_name, colour_number, fabric_number, content, fabric_type, width_cm, gsm, bin_location, supplier_id, supplier_as_written, needs_review, needs_review_reason, registry_notes, registry_stock_raw, archived_at",
+      "id, material_code, fabric_name, colour_name, colour_number, fabric_number, content, fabric_type, width_cm, gsm, bin_location, reorder_point_m, supplier_id, supplier_as_written, needs_review, needs_review_reason, registry_notes, registry_stock_raw, archived_at",
     )
     .eq("material_code", code)
     .maybeSingle();
@@ -80,32 +80,44 @@ async function MaterialScreen({ params, searchParams }: DetailProps) {
   const editor = canEditInventory(gate.profile);
   const gallery = await galleryForMaterial(material.id);
   const primary = gallery.find((photo) => photo.isPrimary) ?? gallery[0];
-  const [stockResult, historyResult, costResult, suppliersResult] =
-    await Promise.all([
-      supabase
-        .from("material_availability")
-        .select("on_hand_m, reserved_m, available_m, is_low_stock")
-        .eq("material_id", material.id)
-        .maybeSingle(),
-      supabase
-        .from("stock_transactions")
-        .select(
-          "txn_code, occurred_on, txn_type, qty_m, order_number_raw, description, entered_by",
-        )
-        .eq("material_id", material.id)
-        .order("occurred_on", { ascending: false })
-        .order("txn_code", { ascending: false }),
-      canSeeCosts(gate.profile)
-        ? supabase
-            .from("material_costs")
-            .select("list_price_per_m, net_price_per_m, discount_entered")
-            .eq("material_id", material.id)
-            .maybeSingle()
-        : Promise.resolve({ data: null }),
-      editor
-        ? supabase.from("suppliers").select("id, name").order("name")
-        : Promise.resolve({ data: [] }),
-    ]);
+  const [
+    stockResult,
+    historyResult,
+    costResult,
+    suppliersResult,
+    settingsResult,
+  ] = await Promise.all([
+    supabase
+      .from("material_availability")
+      .select("on_hand_m, reserved_m, available_m, is_low_stock")
+      .eq("material_id", material.id)
+      .maybeSingle(),
+    supabase
+      .from("stock_transactions")
+      .select(
+        "txn_code, occurred_on, txn_type, qty_m, order_number_raw, description, entered_by",
+      )
+      .eq("material_id", material.id)
+      .order("occurred_on", { ascending: false })
+      .order("txn_code", { ascending: false }),
+    canSeeCosts(gate.profile)
+      ? supabase
+          .from("material_costs")
+          .select("list_price_per_m, net_price_per_m, discount_entered")
+          .eq("material_id", material.id)
+          .maybeSingle()
+      : Promise.resolve({ data: null }),
+    editor
+      ? supabase.from("suppliers").select("id, name").order("name")
+      : Promise.resolve({ data: [] }),
+    supabase
+      .from("inventory_settings")
+      .select("low_stock_threshold_m")
+      .eq("id", true)
+      .maybeSingle(),
+  ]);
+  const studioReorder = settingsResult.data?.low_stock_threshold_m ?? 2;
+  const ownReorder = material.reorder_point_m;
 
   return (
     <div className="flex flex-col gap-4">
@@ -153,6 +165,10 @@ async function MaterialScreen({ params, searchParams }: DetailProps) {
               available={stockResult.data?.available_m ?? null}
               low={stockResult.data?.is_low_stock ?? false}
             />
+            <p className="mt-2 text-sm text-muted">
+              Reorder point {metres(ownReorder ?? studioReorder)}
+              {ownReorder == null ? " (studio default)" : ""}
+            </p>
             {costResult.data ? (
               <p className="mt-2 text-sm text-muted">
                 List {money(costResult.data.list_price_per_m)} / m · Net{" "}

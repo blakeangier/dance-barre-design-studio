@@ -12,7 +12,11 @@ import {
   canSeeStaffPrivate,
   type AppRole,
 } from "@/lib/auth/permissions";
-import { EDIT_NOTICES, EMPLOYMENT_TYPES } from "@/lib/records/edit";
+import {
+  EDIT_NOTICES,
+  EMPLOYMENT_TYPES,
+  employmentTypeLabel,
+} from "@/lib/records/edit";
 import { ROLE_BADGE } from "@/lib/brand";
 import { gateArea } from "@/lib/auth/session";
 import { createClient } from "@/lib/supabase/server";
@@ -155,7 +159,11 @@ async function PeopleScreen({
                 <p className="text-sm text-ink">{person.job_title}</p>
               ) : null}
               <p className="text-sm text-muted">
-                {[person.employment_type, person.start_date, person.start_note]
+                {[
+                  employmentTypeLabel(person.employment_type),
+                  person.start_date,
+                  person.start_note,
+                ]
                   .filter(Boolean)
                   .join(" · ")}
               </p>

@@ -294,6 +294,14 @@ export function InventoryBrowser({
         >
           Usage log
         </Link>
+        {canEdit ? (
+          <Link
+            href="/inventory/alerts"
+            className="inline-flex min-h-12 items-center text-sm font-medium text-ink"
+          >
+            Low-stock alerts
+          </Link>
+        ) : null}
       </div>
       <div className="grid gap-3 rounded-2xl border border-line bg-card p-4">
         <div ref={boxRef} className="grid scroll-mt-4 gap-2">

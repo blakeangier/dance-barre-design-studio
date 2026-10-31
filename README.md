@@ -250,7 +250,7 @@ Dashboard, Tasks, Tasks Done, Fabric Tags, and the empty form tabs are not loade
 7. Done. Vercel project `dance-barre-design-studio` (team blake) is connected. Do not deploy a production database yet.
 8. Preview deployments use the dev Supabase keys. Keep Production empty until a separate production Supabase project exists.
 9. Both companies are CAD for now. If that changes later, update `home_currency` on the company row. The app does not convert currencies.
-10. Before go-live: create a second Supabase project for production, use the Vercel Pro team, and connect email (Resend) so magic links and password resets can be sent. The `RESEND_API_KEY` name is reserved and unused for now.
+10. Low-fabric mail uses Resend. In the Vercel project (Production, and Preview if you want to try a send), set `RESEND_API_KEY` and `CRON_SECRET`. Both are server-only. Do not create a `NEXT_PUBLIC_` copy. Leave `RESEND_API_KEY` empty in tests and CI. The digest runs once a day at 13:00 UTC from `/api/low-stock-digest`. The dev from-address is `Dance Barre Design Studio <onboarding@resend.dev>`. That shared sender is only for trying mail. Production needs a domain verified in Resend, and `NEXT_PUBLIC_SITE_URL` set to the real app URL so the email links open the right site. Magic links and password resets are still not sent through Resend.
 
 ## Assumptions
 

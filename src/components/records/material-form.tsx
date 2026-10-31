@@ -21,6 +21,7 @@ type MaterialFields = {
   width_cm: number | string | null;
   gsm: number | string | null;
   bin_location: string | null;
+  reorder_point_m: number | string | null;
   registry_notes: string | null;
   needs_review: boolean;
   needs_review_reason: string | null;
@@ -153,6 +154,18 @@ export function MaterialForm({
         label="Bin"
         defaultValue={material?.bin_location}
       />
+      <TextField
+        id="reorderPoint"
+        name="reorderPoint"
+        label="Reorder point (metres)"
+        inputMode="decimal"
+        defaultValue={material?.reorder_point_m}
+      />
+      <p className="text-sm text-muted">
+        Leave this blank to use the studio default of 2 m. The fabric is low
+        when available metres are at or below this number. Uncounted stock is
+        not low.
+      </p>
       <AreaField
         id="notes"
         name="notes"
