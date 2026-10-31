@@ -38,27 +38,38 @@ export const getSessionState = cache(async (): Promise<SessionState> => {
 
   if (error || !data?.claims.sub) return { status: "anonymous" };
 
-  const { data: row, error: profileError } = await supabase
-    .from("profiles")
-    .select("id, email, full_name, role, can_purchase, is_active, phone")
-    .eq("id", data.claims.sub)
-    .maybeSingle();
+  const userId = data.claims.sub;
+  const [profileResult, contactResult] = await Promise.all([
+    supabase
+      .from("profiles")
+      .select("id, full_name, role, can_purchase, is_active")
+      .eq("id", userId)
+      .maybeSingle(),
+    supabase
+      .from("profile_contacts")
+      .select("email, phone")
+      .eq("profile_id", userId)
+      .maybeSingle(),
+  ]);
 
-  if (profileError) {
+  if (profileResult.error || contactResult.error) {
     console.error("Profile lookup failed");
     return { status: "database-error" };
   }
 
-  if (!row || !isAppRole(row.role)) return { status: "missing-profile" };
+  const row = profileResult.data;
+  if (!row || !isAppRole(row.role) || !contactResult.data?.email) {
+    return { status: "missing-profile" };
+  }
   if (!row.is_active) return { status: "inactive" };
 
   return {
     status: "ready",
     profile: {
       id: row.id,
-      email: row.email,
+      email: contactResult.data.email,
       fullName: row.full_name,
-      phone: row.phone,
+      phone: contactResult.data.phone,
       role: row.role,
       canPurchase: row.can_purchase,
     },

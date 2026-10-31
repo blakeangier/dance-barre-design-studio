@@ -9,7 +9,7 @@ grant usage on schema extensions to authenticated, anon, service_role;
 -- Supabase puts `extensions` on the search path. A plain Postgres does not.
 set search_path to public, extensions;
 
-select plan(50);
+select plan(62);
 
 create schema if not exists tests;
 
@@ -200,6 +200,14 @@ select ok(
   (select relrowsecurity from pg_class where oid = 'public.audit_log'::regclass),
   'audit_log has row level security'
 );
+select ok(
+  (select relrowsecurity from pg_class where oid = 'public.profile_contacts'::regclass),
+  'profile_contacts has row level security'
+);
+select hasnt_column('public', 'profiles', 'email', 'profiles do not store email');
+select hasnt_column('public', 'profiles', 'phone', 'profiles do not store phone');
+select has_column('public', 'profile_contacts', 'email', 'email lives on profile_contacts');
+select has_column('public', 'profile_contacts', 'phone', 'phone lives on profile_contacts');
 
 select is(
   (
@@ -219,17 +227,40 @@ select tests.claims('00000000-0000-0000-0000-0000000000a4');
 set role authenticated;
 select is(
   (select count(*)::int from public.profiles),
+  5,
+  'employee can see coworker names and roles'
+);
+select is(
+  (
+    select full_name
+    from public.profiles
+    where id = '00000000-0000-0000-0000-0000000000a1'
+  ),
+  'SAMPLE Owner',
+  'employee can read a coworker name'
+);
+select is(
+  (
+    select role::text
+    from public.profiles
+    where id = '00000000-0000-0000-0000-0000000000a1'
+  ),
+  'owner',
+  'employee can read a coworker role'
+);
+select is(
+  (select count(*)::int from public.profile_contacts),
   1,
-  'employee sees only their own profile'
+  'employee sees only their own contact details'
 );
 select is(
   (
     select count(*)::int
-    from public.profiles
+    from public.profile_contacts
     where email = 'sample-owner@example.com'
   ),
   0,
-  'employee cannot see another person'
+  'employee cannot see a coworker email or phone'
 );
 select is(
   (select count(*)::int from public.employee_compensation),
@@ -266,14 +297,30 @@ select is(
   'production manager cannot read compensation'
 );
 select is(
+  (select count(*)::int from public.profile_contacts),
+  5,
+  'production manager can see contact details'
+);
+select is(
   (select count(*)::int from public.supplier_prices),
-  0,
-  'production manager cannot read supplier prices'
+  1,
+  'production manager can read supplier prices without the purchasing switch'
 );
 select is(
   (select count(*)::int from public.cost_rates),
   0,
   'production manager cannot read cost rates'
+);
+select throws_ok(
+  $$insert into public.supplier_prices (
+      entity_id, supplier_name, description, currency, unit_price
+    )
+    select id, 'SAMPLE Supplier', 'SAMPLE blocked buy', 'CAD', 2
+    from public.business_entities
+    where legal_name = 'Dance Barre Design Studio Inc.'$$,
+  '42501',
+  NULL,
+  'production manager cannot record a supplier price without the purchasing switch'
 );
 
 reset role;
@@ -281,8 +328,13 @@ select tests.claims('00000000-0000-0000-0000-0000000000a5');
 set role authenticated;
 select is(
   (select count(*)::int from public.profiles),
+  5,
+  'purchasing employee can see coworker names'
+);
+select is(
+  (select count(*)::int from public.profile_contacts),
   1,
-  'purchasing employee still cannot browse other profiles'
+  'purchasing employee cannot read other people''s contact details'
 );
 select is(
   (select count(*)::int from public.employee_compensation),
@@ -606,6 +658,36 @@ select throws_ok(
   '42501',
   NULL,
   'signed-in users cannot change entity currency through the Data API'
+);
+
+-- Elaine's case: a production manager who also has the purchasing switch can buy.
+reset role;
+select tests.clear_claims();
+update public.profiles
+  set can_purchase = true
+  where id = '00000000-0000-0000-0000-0000000000a2';
+reset role;
+select tests.claims('00000000-0000-0000-0000-0000000000a2');
+set role authenticated;
+insert into public.supplier_prices (
+  entity_id,
+  supplier_name,
+  description,
+  currency,
+  unit_price
+)
+select
+  id,
+  'SAMPLE Supplier',
+  'SAMPLE purchase by production manager',
+  'CAD',
+  3
+from public.business_entities
+where legal_name = 'Dance Barre Design Studio Inc.';
+select is(
+  (select count(*)::int from public.supplier_prices),
+  2,
+  'production manager with the purchasing switch can record a supplier price'
 );
 
 select * from finish();

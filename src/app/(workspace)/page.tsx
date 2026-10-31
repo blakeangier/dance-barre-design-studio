@@ -77,9 +77,9 @@ async function HomeScreen({
           </ul>
         )}
         <p className="mt-3 text-sm text-ink/70">
-          Both companies start in CAD. That is a starting assumption, not a
-          confirmed bookkeeping fact. USD is allowed when a later phase records
-          money.
+          Both companies are CAD for now. Blake confirmed that in October 2026.
+          USD can be chosen later if either company starts keeping its books
+          that way. This app does not convert currencies.
         </p>
       </section>
       <section>

@@ -15,15 +15,18 @@ export async function updateMyDetails(formData: FormData) {
   if (phone.length > 40) redirect("/?notice=phone");
 
   const supabase = await createClient();
-  const { error } = await supabase
-    .from("profiles")
-    .update({
-      full_name: fullName,
-      phone: phone.length > 0 ? phone : null,
-    })
-    .eq("id", state.profile.id);
+  const [nameResult, phoneResult] = await Promise.all([
+    supabase
+      .from("profiles")
+      .update({ full_name: fullName })
+      .eq("id", state.profile.id),
+    supabase
+      .from("profile_contacts")
+      .update({ phone: phone.length > 0 ? phone : null })
+      .eq("profile_id", state.profile.id),
+  ]);
 
-  if (error) redirect("/?notice=save-failed");
+  if (nameResult.error || phoneResult.error) redirect("/?notice=save-failed");
 
   redirect("/?notice=saved");
 }

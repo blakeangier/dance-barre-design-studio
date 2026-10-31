@@ -47,7 +47,7 @@ describe("role areas", () => {
     assert.equal(canAccessArea(profiles.payroll_admin, "payroll"), true);
   });
 
-  it("lets production run the floor without seeing pay or prices", () => {
+  it("lets production run the floor without payroll, costing, or purchasing", () => {
     assert.deepEqual(allowed(profiles.production_manager), [
       "home",
       "design-library",
@@ -73,6 +73,19 @@ describe("role areas", () => {
     assert.equal(canAccessArea(profiles.buyer, "payroll"), false);
     assert.equal(canAccessArea(profiles.employee, "purchasing"), false);
     assert.equal(canAccessArea(profiles.owner, "purchasing"), true);
+  });
+
+  it("lets a production manager with the purchasing switch open Purchasing", () => {
+    const elaine = {
+      role: "production_manager" as const,
+      canPurchase: true,
+    };
+    assert.equal(canAccessArea(elaine, "purchasing"), true);
+    assert.equal(canAccessArea(elaine, "costing"), false);
+    assert.equal(
+      canAccessArea(profiles.production_manager, "purchasing"),
+      false,
+    );
   });
 });
 

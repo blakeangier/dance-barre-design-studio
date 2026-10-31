@@ -147,7 +147,6 @@ async function upsertProfile(client, id, email, person) {
   const { error } = await client.from("profiles").upsert(
     {
       id,
-      email,
       full_name: person.fullName ?? "",
       role: person.role,
       can_purchase: Boolean(person.canPurchase),
@@ -158,6 +157,23 @@ async function upsertProfile(client, id, email, person) {
   if (error) {
     console.error(
       `Account ${email} exists in Auth, but the profile row was not saved: ${error.message}`,
+    );
+    process.exitCode = 1;
+    return;
+  }
+
+  // Email and phone are not on profiles. Coworkers can see a name, not this row.
+  const { error: contactError } = await client.from("profile_contacts").upsert(
+    {
+      profile_id: id,
+      email,
+    },
+    { onConflict: "profile_id" },
+  );
+
+  if (contactError) {
+    console.error(
+      `Account ${email} exists, but the contact row was not saved: ${contactError.message}`,
     );
     process.exitCode = 1;
   }

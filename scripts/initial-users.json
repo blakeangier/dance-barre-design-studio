@@ -15,7 +15,7 @@
     "email": "designstudio.dancebarre@gmail.com",
     "fullName": "Elaine Chatwood",
     "role": "production_manager",
-    "canPurchase": false
+    "canPurchase": true
   },
   {
     "email": "dancebarrestudiomanager@dancebarre.ca",

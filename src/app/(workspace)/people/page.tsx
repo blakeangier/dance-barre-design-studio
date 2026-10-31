@@ -25,6 +25,11 @@ type PersonRow = {
   is_active: boolean;
 };
 
+type ContactRow = {
+  profile_id: string;
+  email: string;
+};
+
 export default function PeoplePage(props: PeopleProps) {
   return (
     <Suspense fallback={<LoadingLine />}>
@@ -44,12 +49,27 @@ async function PeopleScreen({
   const params = await searchParams;
   const notice = noticeText(firstQueryValue(params.notice));
   const supabase = await createClient();
-  const { data, error } = await supabase
-    .from("profiles")
-    .select("id, email, full_name, role, can_purchase, is_active")
-    .order("full_name");
+  const [peopleResult, contactsResult] = await Promise.all([
+    supabase
+      .from("profiles")
+      .select("id, full_name, role, can_purchase, is_active")
+      .order("full_name"),
+    supabase.from("profile_contacts").select("profile_id, email"),
+  ]);
 
-  const people = (data ?? []) as PersonRow[];
+  const contacts = new Map(
+    ((contactsResult.data ?? []) as ContactRow[]).map((contact) => [
+      contact.profile_id,
+      contact,
+    ]),
+  );
+  const people: PersonRow[] = (
+    (peopleResult.data ?? []) as Omit<PersonRow, "email">[]
+  ).map((person) => ({
+    ...person,
+    email: contacts.get(person.id)?.email ?? "",
+  }));
+  const error = peopleResult.error;
   const isOwner = gate.profile.role === "owner";
 
   return (

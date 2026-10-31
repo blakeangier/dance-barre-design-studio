@@ -134,8 +134,10 @@ export function canAccessArea(profile: AccessProfile, area: AreaId): boolean {
     case "payroll":
       return role === "owner" || role === "payroll_admin";
     case "purchasing":
-      // Owners see purchasing even without the extra flag.
-      // The flag lets a non-owner buyer in later.
+      // The switch (or being an owner) opens this area and allows recording a buy.
+      // Reading supplier prices is wider: every production manager can read them
+      // in the database, so Elaine can see prices because of her role. She also
+      // has the switch, so she can buy.
       return role === "owner" || canPurchase;
     case "costing":
     case "financial-reporting":

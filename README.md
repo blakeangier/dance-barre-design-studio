@@ -9,9 +9,9 @@ The shop is small (about eight people on the floor, about two thousand costumes 
 - Sign-in with email and password. A magic-link option is on the same page for later, once email sending is connected.
 - No public sign-up. An owner creates each account.
 - Four roles: owner, production manager, payroll, and employee. The menu only shows areas that role may open. The database enforces the same split, so hiding a button is not the lock.
-- Purchasing is a switch on a person, not a fifth role. Lindsay is an owner who also buys outside costumes and dancewear, so she needs both.
-- Two companies: Dance Barre Design Studio Inc. and Dance Barre Studio. Money can be recorded in CAD or USD. Both companies start as CAD. That is a starting assumption, not a confirmed bookkeeping choice.
-- Pay rates, supplier prices, and internal costs have their own tables. They are empty. A database can hide rows from someone, but it cannot hide one column inside a row they are allowed to see, so those figures do not live on the profile.
+- Purchasing is a switch on a person, not a fifth role. Lindsay (an owner) and Elaine (the production manager) both buy outside costumes and dancewear, so they have the switch.
+- Two companies: Dance Barre Design Studio Inc. and Dance Barre Studio. Money can be recorded in CAD or USD. Both companies are **CAD for now**. Blake confirmed that in October 2026. It can be changed later if either company starts keeping its books in USD. The app does not convert currencies.
+- Pay rates, supplier prices, and contact details (email and phone) have their own tables. Pay and prices are empty. A database can hide rows from someone, but it cannot hide one column inside a row they are allowed to see. Coworkers can see a name and a role. They cannot see a phone number, an email address, or a pay rate.
 - An audit log records inserts, updates, and deletes on the core tables. Nobody using the app can edit or delete history.
 - The app can be installed on a phone home screen.
 
@@ -55,23 +55,26 @@ Vercel: use the free team for this dev app. Move to the Pro team before the shop
 | Schedule   | yes   | yes                |         | yes      |                   |
 | Payroll    | yes   |                    | yes     |          |                   |
 | Inventory  | yes   | yes                |         |          |                   |
-| Purchasing | yes   |                    |         |          | yes               |
+| Purchasing | yes   | with the switch    |         |          | yes               |
 | Costing    | yes   |                    |         |          |                   |
 | Reports    | yes   |                    |         |          |                   |
 | People     | yes   | yes                | yes     |          |                   |
 
-An employee with the purchasing switch can open Purchasing. They still cannot open payroll, costs, or reports.
+Elaine is a production manager with the purchasing switch, so she can open Purchasing. A production manager without that switch does not see the Purchasing area. An employee with the switch can open Purchasing too. They still cannot open payroll, costs, or reports.
+
+Seeing a supplier price is separate from being allowed to buy. Every production manager can read supplier prices, so Elaine can see them because of her role even if the switch were turned off. The switch is what lets her record a purchase. That split is deliberate: the next production manager should be able to plan from prices without automatically being allowed to buy.
 
 ### What the database allows
 
-| Table                               | Who can read                                                                               | Who can write                                                                 |
-| ----------------------------------- | ------------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------- |
-| Companies (`business_entities`)     | any signed-in person                                                                       | nobody through the app (change currency in the Supabase SQL editor if needed) |
-| People (`profiles`)                 | you see yourself; owners, production managers, and payroll see everyone                    | you may change your own name and phone; you cannot change your role           |
-| Pay rates (`employee_compensation`) | owner, payroll                                                                             | owner, payroll may add a row; nobody may edit or delete one                   |
-| Supplier prices (`supplier_prices`) | owner, and anyone with the purchasing switch                                               | same, add only                                                                |
-| Internal costs (`cost_rates`)       | owner                                                                                      | owner, add only                                                               |
-| History (`audit_log`)               | owner sees all; payroll sees pay history only; purchasing sees supplier-price history only | nobody can update or delete, including the database owner                     |
+| Table                                | Who can read                                                                                                                                               | Who can write                                                                 |
+| ------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------- |
+| Companies (`business_entities`)      | any signed-in person                                                                                                                                       | nobody through the app (change currency in the Supabase SQL editor if needed) |
+| People (`profiles`)                  | every signed-in person can see coworker names, roles, and whether an account is on                                                                         | you may change your own name; you cannot change your role                     |
+| Contact details (`profile_contacts`) | your own email and phone; owners, production managers, and payroll can see everyone's                                                                      | you may change your own phone; email follows the login                        |
+| Pay rates (`employee_compensation`)  | owner, payroll                                                                                                                                             | owner, payroll may add a row; nobody may edit or delete one                   |
+| Supplier prices (`supplier_prices`)  | owner, every production manager, and anyone with the purchasing switch                                                                                     | owner and the purchasing switch may add a row; nobody may edit or delete one  |
+| Internal costs (`cost_rates`)        | owner                                                                                                                                                      | owner, add only                                                               |
+| History (`audit_log`)                | owner sees all; payroll sees pay history; production managers and purchasing see supplier-price history; payroll and production see contact-detail history | nobody can update or delete, including the database owner                     |
 
 Signed-out visitors cannot read any of these tables.
 
@@ -142,7 +145,7 @@ It reads `scripts/initial-users.json`:
 | --------------- | ------------------------------------- | ------------------ | ---------- |
 | Blake Angier    | blakeangier@gmail.com                 | owner              | no         |
 | Lindsay Angier  | dancebarredirectors@dancebarre.ca     | owner              | yes        |
-| Elaine Chatwood | designstudio.dancebarre@gmail.com     | production manager | no         |
+| Elaine Chatwood | designstudio.dancebarre@gmail.com     | production manager | yes        |
 | Rebecca Hannam  | dancebarrestudiomanager@dancebarre.ca | payroll            | no         |
 
 Write the printed passwords down somewhere private, share each one with that person, and ask them to keep it safe. Running the script again updates roles and does not reset passwords. Add `--reset-password` only when you mean to replace a password:
@@ -166,7 +169,7 @@ set raw_app_meta_data =
 where email = 'blakeangier@gmail.com';
 ```
 
-Use `"role":"owner"` and `"can_purchase":true` for Lindsay, `"production_manager"` for Elaine, and `"payroll_admin"` for Rebecca. A trigger copies that onto the profile. Do not put the role in user metadata. People can edit user metadata themselves; they cannot edit app metadata.
+Use `"role":"owner"` and `"can_purchase":true` for Lindsay. For Elaine use `"role":"production_manager"` and `"can_purchase":true`. For Rebecca use `"payroll_admin"` and `"can_purchase":false`. A trigger copies that onto the profile. Do not put the role in user metadata. People can edit user metadata themselves; they cannot edit app metadata.
 
 ## Phone home screen
 
@@ -215,24 +218,21 @@ scripts/create-users.mjs  first accounts
 6. Run `npm run create-users` and share the temporary passwords in person or by a private message, not in git.
 7. On Vercel, on the free team, create a project from this GitHub repo. Do not deploy production yet.
 8. In Vercel, add the same variable names for the Development and Preview environments, using the **dev** Supabase keys. Leave Production empty until a separate production Supabase project exists.
-9. Confirm both companies should keep their books in CAD. If one of them is USD, change `home_currency` on that row. The app does not convert currencies.
+9. Both companies are CAD for now. If that changes later, update `home_currency` on the company row. The app does not convert currencies.
 10. Before go-live: create a second Supabase project for production, use the Vercel Pro team, and connect email (Resend) so magic links and password resets can be sent. The `RESEND_API_KEY` name is reserved and unused for now.
 
 ## Assumptions
 
 - Sign-in is email plus password so the shop can get in before email delivery exists. Magic links are on the page and stay quiet until SMTP is connected.
-- Both companies use CAD until you say otherwise.
-- Production managers can see names (so they can assign work later) but not pay, supplier prices, or internal costs.
-- Employees cannot see other people's names yet.
+- Both companies are CAD for now. Blake confirmed that in October 2026. Either company can be switched to USD later by changing `home_currency`.
+- Employees can see coworker names and roles, for tasks and the schedule. They cannot see coworker email, phone, or pay.
+- Every production manager can read supplier prices. Recording a purchase still needs the purchasing switch. Elaine has that switch.
 - Pay, supplier prices, and costs are append-only: a correction is a new row, not an edit.
 - Ontario payroll rules and ADP's file layout are not in this version. Nothing here invents a rate, a deduction, or a supplier.
 - There is no sample business data. Test rows that mention SAMPLE exist only inside a database test, and they are rolled back.
 
 ## Open questions
 
-- Is CAD correct for both companies, or does one of them book in USD?
-- Should production managers see supplier names later, without seeing prices?
-- Should employees see coworkers' names on the schedule?
 - What does the ADP export need to look like, and which Ontario rules apply (vacation pay, public holidays, overtime)? Those will be specified before that phase, not guessed.
 - When should the production Supabase project be created, and what domain will the app use?
-- Who besides Lindsay should have the purchasing switch?
+- Who else, besides Lindsay and Elaine, should have the purchasing switch?
