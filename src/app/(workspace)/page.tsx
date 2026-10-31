@@ -52,9 +52,9 @@ async function HomeScreen({
         </h1>
         <p className="mt-2 max-w-prose leading-relaxed text-muted">
           You are signed in as {ROLE_LABELS[gate.profile.role]}
-          {gate.profile.canPurchase ? " with purchasing access" : ""}. This
-          first version is the foundation: sign-in, roles, and the locked tables
-          later phases will fill in.
+          {gate.profile.canPurchase ? " with purchasing access" : ""}. Inventory
+          and costume orders are open. The other areas stay closed until their
+          phase.
         </p>
       </section>
       <section className="rounded-2xl border border-line bg-card p-5">

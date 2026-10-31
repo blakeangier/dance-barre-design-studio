@@ -1,0 +1,84 @@
+Sizes – Final Size Breakdown by Style,,,,,,,,,,,,,,,,,,,,,,
+"Their Grading & Size Breakdown columns plus IC-L / MC-L / SA-L (long/tall) from the Order Form. Child sizes (SC–XLC) go on the -C- style, adult sizes (XSA–XXLA) on the -A- style.",,,,,,,,,,,,,,,,,,,,,,
+Style Key,Order #,Garment,Group,Version,Style ID,SC,IC,IC-L,MC,MC-L,LC,XLC,XSA,SA,SA-L,MA,LA,XLA,XXLA,TOTAL,Notes,Source
+005|L7-C-F001-06-26|Girls,005,Leo,Female,Girls,L7-C-F001-06-26,,,,2.0,1.0,1.0,,,,,,,,,4,"Leotard size breakdown, Female row, child sizes",SOURCE: Order 005 Order Form rows 36-39
+005|L6-A-F001-06-26|Women's,005,Leo,Female,Girls,L6-A-F001-06-26,,,,,,,,11.0,29.0,3.0,6.0,9.0,2.0,,60,"Leotard size breakdown, Female row, adult sizes",SOURCE: Order 005 Order Form rows 36-39
+005|L7-C-F001-06-26|Boys,005,Leo,Male,Boys,L7-C-F001-06-26,,,,,,1.0,,,,,,,,,1,"Leotard size breakdown, Male row, child sizes",SOURCE: Order 005 Order Form rows 36-39
+005|L9-A-F001-06-26|Men's,005,Leo,Male,Boys,L9-A-F001-06-26,,,,,,,,,2.0,,1.0,,,,3,"Leotard size breakdown, Male row, adult sizes",SOURCE: Order 005 Order Form rows 36-39
+005|P6-C-F001-06-26|Girls,005,Pant,Female,Girls,P6-C-F001-06-26,,1.0,,1.0,1.0,1.0,,,,,,,,,4,"Pant size breakdown, Female row, child sizes",SOURCE: Order 005 Order Form rows 42-45
+005|P7-A-F001-06-26|Women's,005,Pant,Female,Girls,P7-A-F001-06-26,,,,,,,,11.0,29.0,3.0,7.0,8.0,2.0,,60,"Pant size breakdown, Female row, adult sizes",SOURCE: Order 005 Order Form rows 42-45
+005|P9-C-F001-06-26|Boys,005,Pant,Male,Boys,P9-C-F001-06-26,,,,,,1.0,,,,,,,,,1,"Pant size breakdown, Male row, child sizes",SOURCE: Order 005 Order Form rows 42-45
+005|P9-A-F001-06-26|Men's,005,Pant,Male,Boys,P9-A-F001-06-26,,,,,,,,,2.0,,1.0,,,,3,"Pant size breakdown, Male row, adult sizes",SOURCE: Order 005 Order Form rows 42-45
+,,,,,,,,,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,,,,,,,,,
+ORDER 005 CHECK – their Grading & Size Breakdown layout (rebuilt from the rows above) vs Order Form totals,,,,,,,,,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,,,,,,,,,
+LEOTARD SIZE BREAKDOWN – ORDER 005,,,,,,,,,,,,,,,,,,,,,,
+Group,,,,,,SC,IC,IC-L,MC,MC-L,LC,XLC,XSA,SA,SA-L,MA,LA,XLA,XXLA,TOTAL,Order Form TOTAL,Check
+Female,,,,,,0,0,0,2,1,1,0,11,29,3,6,9,2,0,64,64.0,OK
+Male,,,,,,0,0,0,0,0,1,0,0,2,0,1,0,0,0,4,4.0,OK
+TOTAL,,,,,,0,0,0,2,1,2,0,11,31,3,7,9,2,0,68,68,OK
+,,,,,,,,,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,,,,,,,,,
+PANT SIZE BREAKDOWN – ORDER 005,,,,,,,,,,,,,,,,,,,,,,
+Group,,,,,,SC,IC,IC-L,MC,MC-L,LC,XLC,XSA,SA,SA-L,MA,LA,XLA,XXLA,TOTAL,Order Form TOTAL,Check
+Female,,,,,,0,1,0,1,1,1,0,11,29,3,7,8,2,0,64,64.0,OK
+Male,,,,,,0,0,0,0,0,1,0,0,2,0,1,0,0,0,4,4.0,OK
+TOTAL,,,,,,0,1,0,1,1,2,0,11,31,3,8,8,2,0,68,68,OK
+,,,,,,,,,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,,,,,,,,,
+"Order 005 sheet ""Female Total""/""Male Total"" = 64 / 4 (SOURCE: Order 005 sheet).",,,,,,,,,,,,,,,,,,,,,,

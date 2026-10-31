@@ -1,0 +1,8 @@
+Suppliers – Vendor Directory,,,,,,,,,,,,,,,,
+"Lead times, minimums and missing contact details are needed from Elaine.",,,,,,,,,,,,,,,,
+Supplier ID,Supplier,Contact,Email,Phone,Address,Website,Account #,Lead Time (days),Minimum Order,Volume Discount,Notes,Needs Data,# Materials,# PO Lines,PO Value ($),Source
+SUP-TELIO,Telio,Toronto Showroom – Sarah Haunts,toronto@telio.com,416 532 9444,"219 Dufferin St. Suite 106A, Toronto, ON M6K 1Y9",www.telio.com,,,,"10% off at 100m+ (registry notes). Order Form says ""-10% for 110m+""","Showroom hours M–F 9–5, closed 12–1 daily. Account # and log-in left blank in source.",Account #; Lead time; Minimum order,76,37,6875.775,"SOURCE: Fabric Registry (Sept 13, 2026) Suppliers row 3"
+SUP-PRITCHARD,Pritchard Paper Products,,,,,,,,,,Listed in registry Suppliers tab with no details (likely pattern/marker paper).,All contact details; what is purchased,0,0,0,"SOURCE: Fabric Registry (Sept 13, 2026) Suppliers row 11"
+SUP-ANNS,Ann's Fabric Shop,Melissa,,,,,,,,,"Written as ""Ann's"", ""Ann's Fabric Shop"", ""Ann's Fabrics"" in the source. Invoice 36719 (2026-07-29).","Email, phone, address, lead time, minimums",11,4,537,"SOURCE: Fabric Registry (Sept 13, 2026) Inventory + Purchases rows 52-57"
+SUP-ROSEEDEE,Rose E Dee,Maria,,,,,,,,,"Order emailed Sept 4, 2026.","Email, phone, address, lead time, minimums",3,3,256,"SOURCE: Fabric Registry (Sept 13, 2026) Inventory + Purchases rows 60-64"
+SUP-FL,F.L.,,,,,,,,,,Abbreviation only (F037 Red Satin).,Full name and all details,1,0,0,"SOURCE: Fabric Registry (Sept 13, 2026) Inventory row 110"

@@ -1,0 +1,214 @@
+import Link from "next/link";
+import { Suspense } from "react";
+import { logStock } from "@/app/(workspace)/inventory/actions";
+import { StockBadge } from "@/components/inventory/stock-badge";
+import { LoadingLine } from "@/components/shell/loading-line";
+import { NoAccess } from "@/components/shell/no-access";
+import { StatusNote } from "@/components/shell/status-note";
+import { canEditInventory, canSeeCosts } from "@/lib/auth/permissions";
+import { gateArea } from "@/lib/auth/session";
+import { firstQueryValue, noticeText } from "@/lib/auth/notices";
+import { metres, money } from "@/lib/inventory/format";
+import { createClient } from "@/lib/supabase/server";
+
+type DetailProps = {
+  params: Promise<{ materialCode: string }>;
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+};
+
+const NOTICES: Record<string, string> = {
+  saved: "Stock entry saved.",
+  denied: "You can log use only.",
+  qty: "Enter a quantity in metres.",
+  type: "Choose receive, use, or adjust.",
+  failed: "That stock entry did not save.",
+};
+
+export const metadata = { title: "Material" };
+
+export default function MaterialPage(props: DetailProps) {
+  return (
+    <Suspense fallback={<LoadingLine />}>
+      <MaterialScreen params={props.params} searchParams={props.searchParams} />
+    </Suspense>
+  );
+}
+
+async function MaterialScreen({ params, searchParams }: DetailProps) {
+  const gate = await gateArea("inventory");
+  if (!gate.ok) return <NoAccess reason={gate.reason} />;
+
+  const { materialCode } = await params;
+  const code = decodeURIComponent(materialCode);
+  const query = await searchParams;
+  const notice =
+    NOTICES[firstQueryValue(query.notice) ?? ""] ??
+    noticeText(firstQueryValue(query.notice));
+  const supabase = await createClient();
+  const { data: material } = await supabase
+    .from("materials")
+    .select(
+      "id, material_code, fabric_name, colour_name, content, fabric_type, width_cm, bin_location, supplier_as_written, needs_review, needs_review_reason, registry_notes, registry_stock_raw",
+    )
+    .eq("material_code", code)
+    .maybeSingle();
+
+  if (!material) {
+    return (
+      <section>
+        <h1 className="font-serif text-3xl text-ink">Material not found</h1>
+        <Link href="/inventory" className="mt-3 inline-block text-sm text-ink">
+          Back to inventory
+        </Link>
+      </section>
+    );
+  }
+
+  const [stockResult, historyResult, costResult] = await Promise.all([
+    supabase
+      .from("material_availability")
+      .select("on_hand_m, reserved_m, available_m, is_low_stock")
+      .eq("material_id", material.id)
+      .maybeSingle(),
+    supabase
+      .from("stock_transactions")
+      .select(
+        "txn_code, occurred_on, txn_type, qty_m, order_number_raw, description, entered_by",
+      )
+      .eq("material_id", material.id)
+      .order("occurred_on", { ascending: false })
+      .order("txn_code", { ascending: false }),
+    canSeeCosts(gate.profile)
+      ? supabase
+          .from("material_costs")
+          .select("list_price_per_m, net_price_per_m")
+          .eq("material_id", material.id)
+          .maybeSingle()
+      : Promise.resolve({ data: null }),
+  ]);
+  const editor = canEditInventory(gate.profile);
+
+  return (
+    <div className="flex flex-col gap-4">
+      <div>
+        <Link href="/inventory" className="text-sm text-muted">
+          Inventory
+        </Link>
+        <h1 className="mt-1 font-serif text-3xl text-ink">
+          {material.material_code}
+        </h1>
+        <p className="mt-1 text-sm text-muted">
+          {[material.fabric_name, material.colour_name, material.content]
+            .filter(Boolean)
+            .join(" · ")}
+        </p>
+        <p className="text-sm text-muted">
+          {[
+            material.supplier_as_written,
+            material.bin_location ? `Bin ${material.bin_location}` : null,
+            material.width_cm ? `${material.width_cm} cm` : null,
+          ]
+            .filter(Boolean)
+            .join(" · ")}
+        </p>
+        {material.needs_review ? (
+          <p className="mt-2 text-sm text-ink">
+            {material.needs_review_reason}
+          </p>
+        ) : null}
+        {material.registry_stock_raw ? (
+          <p className="mt-1 text-sm text-muted">
+            Registry stock text: {material.registry_stock_raw}
+          </p>
+        ) : null}
+        <StockBadge
+          onHand={stockResult.data?.on_hand_m ?? null}
+          reserved={stockResult.data?.reserved_m ?? null}
+          available={stockResult.data?.available_m ?? null}
+          low={stockResult.data?.is_low_stock ?? false}
+        />
+        {costResult.data ? (
+          <p className="mt-2 text-sm text-muted">
+            List {money(costResult.data.list_price_per_m)} / m · Net{" "}
+            {money(costResult.data.net_price_per_m)} / m
+          </p>
+        ) : null}
+      </div>
+      {notice ? <StatusNote>{notice}</StatusNote> : null}
+      <form
+        action={logStock.bind(null, material.material_code)}
+        className="flex flex-col gap-3 rounded-2xl border border-line bg-card p-4"
+      >
+        <h2 className="font-serif text-2xl text-ink">Log stock</h2>
+        <label className="text-sm font-medium" htmlFor="txnType">
+          Type
+        </label>
+        <select
+          id="txnType"
+          name="txnType"
+          className="min-h-12 rounded-xl border border-line bg-card px-3 text-base"
+          defaultValue="use"
+        >
+          {editor ? <option value="receive">Receive</option> : null}
+          <option value="use">Use</option>
+          {editor ? <option value="adjust">Adjust</option> : null}
+        </select>
+        <label className="text-sm font-medium" htmlFor="qty">
+          Metres
+        </label>
+        <input
+          id="qty"
+          name="qty"
+          inputMode="decimal"
+          required
+          className="min-h-12 rounded-xl border border-line bg-card px-3 text-base"
+        />
+        <label className="text-sm font-medium" htmlFor="orderNumber">
+          Order number
+        </label>
+        <input
+          id="orderNumber"
+          name="orderNumber"
+          className="min-h-12 rounded-xl border border-line bg-card px-3 text-base"
+        />
+        <label className="text-sm font-medium" htmlFor="note">
+          Note
+        </label>
+        <textarea
+          id="note"
+          name="note"
+          className="min-h-24 rounded-xl border border-line bg-card px-3 py-2 text-base"
+        />
+        <button
+          type="submit"
+          className="min-h-12 rounded-full bg-ink px-4 font-medium text-white"
+        >
+          Save
+        </button>
+      </form>
+      <section>
+        <h2 className="font-serif text-2xl text-ink">History</h2>
+        <ul className="mt-3 flex flex-col gap-3">
+          {(historyResult.data ?? []).map((entry) => (
+            <li
+              key={entry.txn_code}
+              className="rounded-2xl border border-line bg-card p-4 text-sm"
+            >
+              <p className="font-medium text-ink">
+                {entry.txn_type} · {metres(entry.qty_m)}
+              </p>
+              <p className="text-muted">
+                {[entry.occurred_on, entry.order_number_raw, entry.entered_by]
+                  .filter(Boolean)
+                  .join(" · ")}
+              </p>
+              {entry.description ? (
+                <p className="mt-1 text-ink">{entry.description}</p>
+              ) : null}
+            </li>
+          ))}
+        </ul>
+      </section>
+    </div>
+  );
+}

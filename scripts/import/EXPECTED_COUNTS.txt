@@ -1,0 +1,28 @@
+Expected rows after running the import SQL on an empty inventory schema.
+Re-running the same files updates these rows; it does not add duplicates.
+
+suppliers	5
+supplier_contacts	5
+materials	91
+material_costs	91
+costume_orders	40
+order_private	40
+styles	108
+style_stages	1188
+stock_transactions	129
+purchase_orders	3
+purchase_order_lines	44
+purchase_line_prices	44
+order_sizes	25
+bom_lines	16
+bom_costs	16
+fittings	8
+fitting_checks	8
+production_gates	12
+review_items_from_sheet	87
+review_items_from_import	0
+inventory_settings	1
+
+extra review items created by this import: 0
+
+Skipped tabs: Dashboard, Tasks, Tasks Done, Fabric Tags, README (except the 2 m threshold, which is in the migration), and the empty Form tabs.

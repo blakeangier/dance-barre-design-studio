@@ -1,6 +1,6 @@
 # Dance Barre Design Studio
 
-Manufacturing workspace for Dance Barre Design Studio Inc., the costume shop in Windsor, Ontario. This is Phase 1: the foundation. Later phases add designs, production orders, tasks, scheduling, timesheets and payroll, inventory, purchasing, costing, reports, and a link to the parent Dance Barre system.
+Manufacturing workspace for Dance Barre Design Studio Inc., the costume shop in Windsor, Ontario. The foundation (sign-in, roles, and locked tables) is in place. This branch adds inventory, costume orders, styles, suppliers, purchases, and Elaine's review list, loaded from the 2026-10-30 tracker export. Later phases add designs, tasks, scheduling, timesheets and payroll, costing, reports, and a link to the parent Dance Barre system.
 
 The shop is small (about eight people on the floor, about two thousand costumes a year). The app is meant to live on a phone home screen as well as a computer.
 
@@ -11,11 +11,11 @@ The shop is small (about eight people on the floor, about two thousand costumes 
 - Four roles: owner, production manager, payroll, and employee. The menu only shows areas that role may open. The database enforces the same split, so hiding a button is not the lock.
 - Purchasing is a switch on a person, not a fifth role. Lindsay (an owner) and Elaine (the production manager) both buy outside costumes and dancewear, so they have the switch.
 - Two companies: Dance Barre Design Studio Inc. and Dance Barre Studio. Money can be recorded in CAD or USD. Both companies are **CAD for now**. Blake confirmed that in October 2026. It can be changed later if either company starts keeping its books in USD. The app does not convert currencies.
-- Pay rates, supplier prices, and contact details (email and phone) have their own tables. Pay and prices are empty. A database can hide rows from someone, but it cannot hide one column inside a row they are allowed to see. Coworkers can see a name and a role. They cannot see a phone number, an email address, or a pay rate.
+- Pay rates, supplier prices, and contact details (email and phone) have their own tables. Pay rates stay empty. Material costs and purchase prices are loaded by the inventory import, not by the migration. A database can hide rows from someone, but it cannot hide one column inside a row they are allowed to see. Coworkers can see a name and a role. They cannot see a phone number, an email address, or a pay rate.
 - An audit log records inserts, updates, and deletes on the core tables. Nobody using the app can edit or delete history.
 - The app can be installed on a phone home screen.
 
-Screens other than Home, Sign in, and People say **Coming in a later phase**. They do not store business data yet.
+Inventory, Orders, Styles, Suppliers, Purchases, and Review show the tracker. The other areas still say **Coming in a later phase**.
 
 ## How the pieces connect
 
@@ -40,7 +40,7 @@ Dev and production must be different Supabase projects and different sets of key
 | Region      | Canada (ca-central-1)                    |
 | URL         | https://peikzgupvcgswyxcfibr.supabase.co |
 
-Do not put real costumes, pay, or supplier prices in that project until you mean to. Do not point the dev app at a future production project.
+The inventory SQL in this branch is for that dev project only, after you review it. Do not run it on a future production project, and do not point the dev app at production.
 
 Vercel project `dance-barre-design-studio` on Blake's team is connected to this repo. Preview deployments use the **dev** Supabase keys. Leave the Production environment empty until a separate production database exists. Move to the Pro team before the shop goes live.
 
@@ -52,11 +52,15 @@ The foundation migration is already applied on the dev project, and the four acc
 | ---------- | ----- | ------------------ | ------- | -------- | ----------------- |
 | Home       | yes   | yes                | yes     | yes      |                   |
 | Designs    | yes   | yes                |         |          |                   |
-| Orders     | yes   | yes                |         |          |                   |
+| Orders     | yes   | yes                | yes     | yes      |                   |
+| Styles     | yes   | yes                | yes     | yes      |                   |
 | Tasks      | yes   | yes                |         | yes      |                   |
 | Schedule   | yes   | yes                |         | yes      |                   |
 | Payroll    | yes   |                    | yes     |          |                   |
-| Inventory  | yes   | yes                |         |          |                   |
+| Inventory  | yes   | yes                | yes     | yes      |                   |
+| Suppliers  | yes   | yes                | yes     | yes      |                   |
+| Purchases  | yes   | yes                |         |          | yes               |
+| Review     | yes   | yes                |         |          | yes               |
 | Purchasing | yes   | with the switch    |         |          | yes               |
 | Costing    | yes   |                    |         |          |                   |
 | Reports    | yes   |                    |         |          |                   |
@@ -64,7 +68,9 @@ The foundation migration is already applied on the dev project, and the four acc
 
 Elaine is a production manager with the purchasing switch, so she can open Purchasing. A production manager without that switch does not see the Purchasing area. An employee with the switch can open Purchasing too. They still cannot open payroll, costs, or reports.
 
-Seeing a supplier price is separate from being allowed to buy. Every production manager can read supplier prices, so Elaine can see them because of her role even if the switch were turned off. The switch is what lets her record a purchase. That split is deliberate: the next production manager should be able to plan from prices without automatically being allowed to buy.
+Seeing a supplier price is separate from being allowed to buy. Every production manager can read supplier prices, so Elaine can see them because of her role even if the switch were turned off. Anyone with the purchasing switch can read unit costs, BOM costs, and supplier prices too. The switch is what lets her record a purchase. That split is deliberate: the next production manager should be able to plan from prices without automatically being allowed to buy.
+
+Supplier phone and email, and client emails or budgets on an order, are narrower. Only an owner or a production manager can read those. A purchasing switch on its own does not open them. Employees can read fabrics, stock, and orders, and they can log fabric they used. They cannot edit a material or record a receipt. The audit log follows that split: purchasing can see price and cost history, and only owners and production managers can see history for supplier contacts and order emails or budgets.
 
 ### What the database allows
 
@@ -209,6 +215,29 @@ scripts/create-users.mjs  first accounts
 ```
 
 `src/lib/supabase/admin.ts` is the only place the secret key is used by the app, and only after an owner check. The file is marked server-only so the browser build cannot include it.
+
+## Inventory import (dev database only)
+
+The tracker export from 2026-10-30 is in `data/plm-export-2026-10-30`. The SQL that loads it is generated and already in `scripts/import`. Do not run it against production.
+
+After the inventory migration is applied, run these files in the Supabase SQL editor, in this order. Each file stands alone. Running them again updates the same rows.
+
+1. `scripts/import/01_suppliers.sql`
+2. `scripts/import/02_materials_part01.sql`
+3. `scripts/import/02_materials_part02.sql`
+4. `scripts/import/02_materials_part03.sql`
+5. `scripts/import/03_orders.sql`
+6. `scripts/import/04_styles_part01.sql` through `04_styles_part06.sql`
+7. `scripts/import/05_transactions.sql`
+8. `scripts/import/06_purchases.sql`
+9. `scripts/import/07_sizes.sql`
+10. `scripts/import/08_bom.sql`
+11. `scripts/import/09_fittings.sql`
+12. `scripts/import/10_reviews.sql`
+
+Expected rows: 5 suppliers, 91 materials, 40 orders, 108 styles, 1,188 style stages, 129 stock transactions, 3 purchase orders, 44 purchase lines, 25 size quantities, 16 BOM lines (8 of them unlinked), 8 fittings, 8 fitting checks, 12 production gates, and 87 review items. The low-stock threshold is 2 m. Counts are also in `scripts/import/EXPECTED_COUNTS.txt`.
+
+Dashboard, Tasks, Tasks Done, Fabric Tags, and the empty form tabs are not loaded. To regenerate the SQL from the CSVs: `node scripts/plm/build-plm-import.mjs`.
 
 ## Checklist for Blake
 

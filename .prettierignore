@@ -4,3 +4,5 @@ package-lock.json
 supabase
 public/icons
 .env.example
+data
+scripts/import

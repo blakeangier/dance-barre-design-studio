@@ -5,6 +5,8 @@ import {
   ROLES,
   areasFor,
   canAccessArea,
+  canSeeCosts,
+  canSeePrivateRecords,
   type AccessProfile,
   type AppRole,
   type AreaId,
@@ -55,15 +57,23 @@ describe("role areas", () => {
       "tasks",
       "scheduling",
       "inventory",
+      "styles",
+      "suppliers",
+      "purchases",
+      "review",
       "people",
     ]);
   });
 
-  it("gives employees their own phone areas only", () => {
+  it("lets every signed-in person open inventory and orders", () => {
     assert.deepEqual(allowed(profiles.employee), [
       "home",
+      "production-orders",
       "tasks",
       "scheduling",
+      "inventory",
+      "styles",
+      "suppliers",
     ]);
   });
 
@@ -73,6 +83,10 @@ describe("role areas", () => {
     assert.equal(canAccessArea(profiles.buyer, "payroll"), false);
     assert.equal(canAccessArea(profiles.employee, "purchasing"), false);
     assert.equal(canAccessArea(profiles.owner, "purchasing"), true);
+    assert.equal(canSeeCosts(profiles.buyer), true);
+    assert.equal(canSeeCosts(profiles.employee), false);
+    assert.equal(canSeePrivateRecords(profiles.buyer), false);
+    assert.equal(canSeePrivateRecords(profiles.production_manager), true);
   });
 
   it("lets a production manager with the purchasing switch open Purchasing", () => {
