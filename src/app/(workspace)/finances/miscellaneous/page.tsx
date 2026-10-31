@@ -60,14 +60,14 @@ async function Miscellaneous() {
         rows={(
           (startupResult.data ?? []) as {
             id: number;
-            occurred_on: string;
+            occurred_on: string | null;
             description: string;
             amount_cad: number | string;
             hst_cad: number | string;
           }[]
         ).map((row) => ({
           id: row.id,
-          label: `${row.occurred_on} · ${row.description}`,
+          label: `${row.occurred_on ?? "Date unknown"} · ${row.description}`,
           amount: Number(row.amount_cad),
           hst: Number(row.hst_cad),
         }))}

@@ -10,6 +10,7 @@ import {
   averageMonthlyPayroll,
   monthlyCategorySpend,
   recurringMonthly,
+  startupSummary,
   variableMonthly,
   type Frequency,
 } from "@/lib/finances/money";
@@ -44,7 +45,7 @@ async function Overview() {
       supabase
         .from("startup_costs")
         .select(
-          "occurred_on, amount_cad, hst_cad, finance_categories(name, excludes_from_totals)",
+          "occurred_on, amount_cad, hst_cad, source, finance_categories(name, excludes_from_totals)",
         )
         .is("archived_at", null),
       supabase
@@ -67,21 +68,12 @@ async function Overview() {
         .is("archived_at", null),
     ]);
   const startup = (startupResult.data ?? []) as {
-    occurred_on: string;
+    occurred_on: string | null;
     amount_cad: number | string;
     hst_cad: number | string;
+    source: string;
     finance_categories: CategoryLink | CategoryLink[] | null;
   }[];
-  const startupPretax = startup.reduce((sum, row) => {
-    const category = categoryOf(row.finance_categories);
-    if (category?.excludes_from_totals) return sum;
-    return sum + Number(row.amount_cad);
-  }, 0);
-  const startupHst = startup.reduce((sum, row) => {
-    const category = categoryOf(row.finance_categories);
-    if (category?.excludes_from_totals) return sum;
-    return sum + Number(row.hst_cad);
-  }, 0);
   const recurring = recurringMonthly(
     (
       (recurringResult.data ?? []) as {
@@ -142,19 +134,51 @@ async function Overview() {
       ei: Number(row.employer_ei_cad),
     })),
   );
-  const monthly = recurring.pretax + variable.pretax + payroll;
-  const chart = monthlyCategorySpend([
+  const startupLines = [
     ...startup.map((row) => ({
-      month: row.occurred_on.slice(0, 7),
       category: categoryOf(row.finance_categories)?.name ?? "Uncategorized",
       pretax: Number(row.amount_cad),
       hst: Number(row.hst_cad),
+      source:
+        row.source === "card_statement"
+          ? ("card" as const)
+          : ("manual" as const),
       excluded: Boolean(
         categoryOf(row.finance_categories)?.excludes_from_totals,
       ),
     })),
     ...cards
-      .filter((row) => !row.is_startup && !row.excluded)
+      .filter((row) => row.is_startup)
+      .map((row) => ({
+        category: categoryOf(row.finance_categories)?.name ?? "Uncategorized",
+        pretax: Number(row.amount_cad),
+        hst: Number(row.hst_cad),
+        source: "card" as const,
+        excluded:
+          row.excluded ||
+          Boolean(categoryOf(row.finance_categories)?.excludes_from_totals),
+      })),
+  ];
+  const startupTotal = startupSummary(startupLines);
+  const monthly = recurring.pretax + variable.pretax + payroll;
+  const chart = monthlyCategorySpend([
+    ...startup.flatMap((row) => {
+      if (!row.occurred_on) return [];
+      return [
+        {
+          month: row.occurred_on.slice(0, 7),
+          category: categoryOf(row.finance_categories)?.name ?? "Uncategorized",
+          pretax: Number(row.amount_cad),
+          hst: Number(row.hst_cad),
+          excluded: Boolean(
+            categoryOf(row.finance_categories)?.excludes_from_totals,
+          ),
+          startup: false,
+        },
+      ];
+    }),
+    ...cards
+      .filter((row) => !row.excluded)
       .map((row) => ({
         month: row.transaction_date.slice(0, 7),
         category: categoryOf(row.finance_categories)?.name ?? "Uncategorized",
@@ -163,6 +187,7 @@ async function Overview() {
         excluded: Boolean(
           categoryOf(row.finance_categories)?.excludes_from_totals,
         ),
+        startup: row.is_startup,
       })),
   ]);
   const widest = Math.max(1, ...chart.map((month) => month.pretax));
@@ -180,8 +205,25 @@ async function Overview() {
           <figcaption className="text-sm text-muted">
             Startup, pre-tax
           </figcaption>
-          <p className="font-serif text-3xl text-ink">{money(startupPretax)}</p>
-          <p className="text-sm text-muted">HST {money(startupHst)}</p>
+          <p className="font-serif text-3xl text-ink">
+            {money(startupTotal.pretax)}
+          </p>
+          <p className="text-sm text-muted">HST {money(startupTotal.hst)}</p>
+          <p className="text-sm text-muted">
+            Manual {money(startupTotal.manual)} · Card{" "}
+            {money(startupTotal.card)}
+          </p>
+          <ul className="mt-2 flex flex-col gap-1 text-sm">
+            {startupTotal.byCategory.map((category) => (
+              <li key={category.category}>
+                {category.category} · {money(category.pretax)}
+                {category.manual > 0
+                  ? ` · manual ${money(category.manual)}`
+                  : ""}
+                {category.card > 0 ? ` · card ${money(category.card)}` : ""}
+              </li>
+            ))}
+          </ul>
         </figure>
         <figure className="rounded-2xl border border-line bg-card p-4">
           <figcaption className="text-sm text-muted">
@@ -209,7 +251,7 @@ async function Overview() {
             Startup beside a year of running costs
           </figcaption>
           <p className="text-sm text-ink">
-            Startup {money(startupPretax)} · One year of run rate{" "}
+            Startup {money(startupTotal.pretax)} · One year of run rate{" "}
             {money(annualized(monthly))}
           </p>
         </figure>
@@ -218,6 +260,12 @@ async function Overview() {
         <h2 className="font-serif text-2xl text-ink">
           Monthly spend by category
         </h2>
+        <p className="text-sm text-muted">
+          Every card line is here unless it is excluded. Startup charges are
+          marked. A startup estimate with no date stays in the startup total and
+          is not placed in a month. The run-rate card average still leaves
+          startup charges out.
+        </p>
         {chart.length === 0 ? (
           <p className="text-sm text-muted">No spend recorded yet.</p>
         ) : (
@@ -227,23 +275,39 @@ async function Overview() {
                 {month.month} · {money(month.pretax)} pre-tax · HST{" "}
                 {money(month.hst)}
               </p>
-              {month.byCategory.map((category) => (
-                <div
-                  key={category.category}
-                  className="flex items-center gap-2 text-sm"
-                >
-                  <span className="w-40 shrink-0 text-muted">
-                    {category.category}
-                  </span>
-                  <span
-                    className="h-3 rounded-full bg-teal"
-                    style={{
-                      width: `${Math.max(4, (category.pretax / widest) * 100)}%`,
-                    }}
-                  />
-                  <span>{money(category.pretax)}</span>
-                </div>
-              ))}
+              {month.byCategory.map((category) => {
+                const running = category.pretax - category.startupPretax;
+                return (
+                  <div
+                    key={category.category}
+                    className="flex items-center gap-2 text-sm"
+                  >
+                    <span className="w-40 shrink-0 text-muted">
+                      {category.category}
+                    </span>
+                    {running > 0 ? (
+                      <span
+                        className="h-3 rounded-full bg-teal"
+                        style={{
+                          width: `${Math.max(4, (running / widest) * 100)}%`,
+                        }}
+                      />
+                    ) : null}
+                    {category.startupPretax > 0 ? (
+                      <span
+                        className="h-3 rounded-full bg-orange"
+                        style={{
+                          width: `${Math.max(4, (category.startupPretax / widest) * 100)}%`,
+                        }}
+                      />
+                    ) : null}
+                    <span>
+                      {money(category.pretax)}
+                      {category.startupPretax > 0 ? " · startup" : ""}
+                    </span>
+                  </div>
+                );
+              })}
             </div>
           ))
         )}

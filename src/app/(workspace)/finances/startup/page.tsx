@@ -45,12 +45,12 @@ async function Startup({ searchParams }: PageProps) {
         "id, occurred_on, description, vendor, category_id, amount_cad, hst_cad, notes, source, finance_categories(name)",
       )
       .is("archived_at", null)
-      .order("occurred_on", { ascending: false }),
+      .order("occurred_on", { ascending: false, nullsFirst: true }),
   ]);
   const categories = (categoriesResult.data ?? []) as Category[];
   const rows = (rowsResult.data ?? []) as {
     id: number;
-    occurred_on: string;
+    occurred_on: string | null;
     description: string;
     vendor: string | null;
     category_id: number;
@@ -93,7 +93,7 @@ async function Startup({ searchParams }: PageProps) {
                 className="rounded-2xl border border-line bg-card p-3 text-sm"
               >
                 <p className="font-medium text-ink">
-                  {line.occurred_on} · {line.description}
+                  {line.occurred_on ?? "Date unknown"} · {line.description}
                 </p>
                 <p className="text-muted">
                   {line.vendor ?? "No vendor"} ·{" "}
@@ -135,12 +135,19 @@ function CostForm({ categories }: { categories: Category[] }) {
       className="flex flex-col gap-2 rounded-2xl border border-line bg-card p-4"
     >
       <h2 className="font-serif text-2xl text-ink">Add a line</h2>
+      <label className="text-sm font-medium" htmlFor="occurredOn">
+        Date
+      </label>
       <input
+        id="occurredOn"
         name="occurredOn"
         type="date"
-        required
         className="min-h-12 rounded-xl border border-line px-3"
       />
+      <label className="flex min-h-11 items-center gap-2 text-sm">
+        <input type="checkbox" name="dateUnknown" />
+        Date unknown
+      </label>
       <input
         name="description"
         required

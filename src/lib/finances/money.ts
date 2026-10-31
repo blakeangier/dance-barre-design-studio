@@ -129,37 +129,111 @@ export function averageMonthlyPayroll(
   return cents(total / months.size);
 }
 
+export type StartupSource = "manual" | "card";
+
+export type StartupLine = {
+  category: string;
+  pretax: number;
+  hst: number;
+  source: StartupSource;
+  excluded: boolean;
+};
+
+export function startupSummary(lines: readonly StartupLine[]): {
+  pretax: number;
+  hst: number;
+  manual: number;
+  card: number;
+  byCategory: {
+    category: string;
+    pretax: number;
+    hst: number;
+    manual: number;
+    card: number;
+  }[];
+} {
+  const categories = new Map<
+    string,
+    { pretax: number; hst: number; manual: number; card: number }
+  >();
+  let pretax = 0;
+  let hst = 0;
+  let manual = 0;
+  let card = 0;
+  for (const line of lines) {
+    if (line.excluded) continue;
+    pretax += line.pretax;
+    hst += line.hst;
+    if (line.source === "card") card += line.pretax;
+    else manual += line.pretax;
+    const current = categories.get(line.category) ?? {
+      pretax: 0,
+      hst: 0,
+      manual: 0,
+      card: 0,
+    };
+    current.pretax += line.pretax;
+    current.hst += line.hst;
+    if (line.source === "card") current.card += line.pretax;
+    else current.manual += line.pretax;
+    categories.set(line.category, current);
+  }
+  return {
+    pretax: cents(pretax),
+    hst: cents(hst),
+    manual: cents(manual),
+    card: cents(card),
+    byCategory: [...categories.entries()]
+      .map(([category, value]) => ({
+        category,
+        pretax: cents(value.pretax),
+        hst: cents(value.hst),
+        manual: cents(value.manual),
+        card: cents(value.card),
+      }))
+      .sort((left, right) => right.pretax - left.pretax),
+  };
+}
+
 export type SpendSlice = {
   month: string;
   category: string;
   pretax: number;
   hst: number;
   excluded: boolean;
+  startup?: boolean;
 };
 
 export function monthlyCategorySpend(rows: readonly SpendSlice[]): {
   month: string;
   pretax: number;
   hst: number;
-  byCategory: { category: string; pretax: number }[];
+  byCategory: { category: string; pretax: number; startupPretax: number }[];
 }[] {
   const months = new Map<
     string,
-    { pretax: number; hst: number; categories: Map<string, number> }
+    {
+      pretax: number;
+      hst: number;
+      categories: Map<string, { pretax: number; startupPretax: number }>;
+    }
   >();
   for (const row of rows) {
     if (row.excluded) continue;
     const month = months.get(row.month) ?? {
       pretax: 0,
       hst: 0,
-      categories: new Map<string, number>(),
+      categories: new Map<string, { pretax: number; startupPretax: number }>(),
     };
     month.pretax += row.pretax;
     month.hst += row.hst;
-    month.categories.set(
-      row.category,
-      (month.categories.get(row.category) ?? 0) + row.pretax,
-    );
+    const category = month.categories.get(row.category) ?? {
+      pretax: 0,
+      startupPretax: 0,
+    };
+    category.pretax += row.pretax;
+    if (row.startup) category.startupPretax += row.pretax;
+    month.categories.set(row.category, category);
     months.set(row.month, month);
   }
   return [...months.entries()]
@@ -169,7 +243,11 @@ export function monthlyCategorySpend(rows: readonly SpendSlice[]): {
       pretax: cents(value.pretax),
       hst: cents(value.hst),
       byCategory: [...value.categories.entries()]
-        .map(([category, pretax]) => ({ category, pretax: cents(pretax) }))
+        .map(([category, amounts]) => ({
+          category,
+          pretax: cents(amounts.pretax),
+          startupPretax: cents(amounts.startupPretax),
+        }))
         .sort((left, right) => right.pretax - left.pretax),
     }));
 }

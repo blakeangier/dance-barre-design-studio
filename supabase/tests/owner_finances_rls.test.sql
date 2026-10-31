@@ -7,7 +7,7 @@ create extension if not exists pgtap with schema extensions;
 grant usage on schema extensions to authenticated, anon;
 set search_path to public, extensions;
 
-select plan(9);
+select plan(10);
 
 insert into auth.users (
   instance_id, id, aud, role, email, raw_app_meta_data, raw_user_meta_data,
@@ -93,6 +93,16 @@ select is(
   (select count(*)::int from public.startup_costs where description = 'SAMPLE shelf'),
   1,
   'an owner can read a SAMPLE startup line'
+);
+
+select lives_ok(
+  $$
+    insert into public.startup_costs (description, category_id, amount_cad, source)
+    select 'SAMPLE date unknown', id, 1.00, 'manual'
+    from public.finance_categories
+    where name = 'Renovation'
+  $$,
+  'a SAMPLE startup estimate can be saved with no date'
 );
 
 reset role;

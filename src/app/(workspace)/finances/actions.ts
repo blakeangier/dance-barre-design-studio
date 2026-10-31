@@ -28,9 +28,10 @@ export async function saveStartupCost(formData: FormData) {
   const amount = money(text(formData.get("amountCad")));
   const hst = money(text(formData.get("hstCad"))) ?? 0;
   const description = text(formData.get("description"));
-  const occurredOn = text(formData.get("occurredOn"));
+  const dateUnknown = formData.get("dateUnknown") === "on";
+  const occurredOn = dateUnknown ? "" : text(formData.get("occurredOn"));
   const categoryId = Number(text(formData.get("categoryId")));
-  if (amount === null || !description || !occurredOn || !categoryId) {
+  if (amount === null || !description || !categoryId) {
     redirect(`${back}?notice=failed`);
   }
   const source =
@@ -38,7 +39,7 @@ export async function saveStartupCost(formData: FormData) {
       ? "card_statement"
       : "manual";
   const row = {
-    occurred_on: occurredOn,
+    occurred_on: occurredOn || null,
     description,
     vendor: text(formData.get("vendor")) || null,
     category_id: categoryId,

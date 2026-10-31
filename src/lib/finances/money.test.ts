@@ -9,6 +9,7 @@ import {
   monthlyAmount,
   monthlyCategorySpend,
   parseCardCsv,
+  startupSummary,
   recurringMonthly,
   variableMonthly,
   workedHours,
@@ -166,6 +167,102 @@ describe("payroll and the card file", () => {
     ]);
     assert.equal(chart[0]?.pretax, 25);
     assert.equal(chart[0]?.hst, 3.25);
+    assert.equal(chart[0]?.byCategory[0]?.startupPretax, 0);
+  });
+});
+
+describe("startup from the ledger and the card", () => {
+  it("adds manual lines and startup card lines, and leaves excluded lines out", () => {
+    const summary = startupSummary([
+      {
+        category: "Renovation",
+        pretax: 100,
+        hst: 0,
+        source: "manual",
+        excluded: false,
+      },
+      {
+        category: "Renovation",
+        pretax: 40,
+        hst: 5.2,
+        source: "card",
+        excluded: false,
+      },
+      {
+        category: "Fixtures",
+        pretax: 15,
+        hst: 0,
+        source: "card",
+        excluded: true,
+      },
+      {
+        category: "Not a Design Studio cost",
+        pretax: 80,
+        hst: 0,
+        source: "manual",
+        excluded: true,
+      },
+    ]);
+    assert.equal(summary.pretax, 140);
+    assert.equal(summary.hst, 5.2);
+    assert.equal(summary.manual, 100);
+    assert.equal(summary.card, 40);
+    assert.equal(summary.byCategory[0]?.category, "Renovation");
+    assert.equal(summary.byCategory[0]?.manual, 100);
+    assert.equal(summary.byCategory[0]?.card, 40);
+  });
+
+  it("tags startup card spend on the chart and still leaves it out of the run-rate average", () => {
+    const chart = monthlyCategorySpend([
+      {
+        month: "2026-10",
+        category: "Fixtures",
+        pretax: 20,
+        hst: 2.6,
+        excluded: false,
+        startup: true,
+      },
+      {
+        month: "2026-10",
+        category: "Fixtures",
+        pretax: 10,
+        hst: 0,
+        excluded: false,
+        startup: false,
+      },
+      {
+        month: "2026-10",
+        category: "Fabric",
+        pretax: 50,
+        hst: 0,
+        excluded: true,
+        startup: true,
+      },
+    ]);
+    assert.equal(chart[0]?.pretax, 30);
+    assert.equal(chart[0]?.byCategory[0]?.startupPretax, 20);
+    const variable = variableMonthly(
+      [
+        {
+          date: "2026-10-01",
+          amount: 20,
+          hst: 2.6,
+          excluded: false,
+          startup: true,
+          categoryExcluded: false,
+        },
+        {
+          date: "2026-10-02",
+          amount: 30,
+          hst: 0,
+          excluded: false,
+          startup: false,
+          categoryExcluded: false,
+        },
+      ],
+      "2026-10-31",
+    );
+    assert.equal(variable.pretax, 10);
     assert.deepEqual(currentBiweeklyPeriod("2026-01-05"), {
       start: "2026-01-05",
       end: "2026-01-18",
