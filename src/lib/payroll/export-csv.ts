@@ -7,6 +7,15 @@ export type PayrollExportRow = {
   notes: string;
 };
 
+// Contractors are paid by e-transfer, so their timesheets stay out of this file.
+// profiles.employment_type gains 'contractor' in the inventory migration
+// 20261031052000_contractor_employment.sql.
+export function includeInPayrollExport(
+  employmentType: string | null | undefined,
+): boolean {
+  return employmentType !== "contractor";
+}
+
 function cell(value: string | number): string {
   const text = String(value);
   if (/[",\n]/.test(text)) return `"${text.replaceAll('"', '""')}"`;

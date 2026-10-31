@@ -1,6 +1,10 @@
 import { canProcessPayroll } from "@/lib/auth/permissions";
 import { getSessionState } from "@/lib/auth/session";
-import { payrollCsv, type PayrollExportRow } from "@/lib/payroll/export-csv";
+import {
+  includeInPayrollExport,
+  payrollCsv,
+  type PayrollExportRow,
+} from "@/lib/payroll/export-csv";
 import { hoursFromMinutes, minutesBetween } from "@/lib/schedule/hours";
 import { createClient } from "@/lib/supabase/server";
 
@@ -16,7 +20,9 @@ export async function GET(request: Request) {
   const supabase = await createClient();
   const { data: sheets } = await supabase
     .from("timesheets")
-    .select("id, period_start, period_end, profiles(full_name)")
+    .select(
+      "id, period_start, period_end, profiles(full_name, employment_type)",
+    )
     .eq("period_start", period)
     .in("status", ["approved", "sent", "processed"]);
   const ids = (sheets ?? []).map((sheet) => sheet.id);
@@ -33,12 +39,14 @@ export async function GET(request: Request) {
     .select("rounding_minutes")
     .eq("id", true)
     .maybeSingle();
-  const rows: PayrollExportRow[] = (sheets ?? []).map((sheet) => {
+  const rows: PayrollExportRow[] = (sheets ?? []).flatMap((sheet) => {
     const person = sheet.profiles as
-      { full_name: string } | { full_name: string }[] | null;
-    const name = Array.isArray(person)
-      ? person[0]?.full_name
-      : person?.full_name;
+      | { full_name: string; employment_type: string | null }
+      | { full_name: string; employment_type: string | null }[]
+      | null;
+    const profile = Array.isArray(person) ? person[0] : person;
+    if (!includeInPayrollExport(profile?.employment_type)) return [];
+    const name = profile?.full_name;
     const minutes = (entries ?? [])
       .filter(
         (entry) =>
@@ -64,14 +72,16 @@ export async function GET(request: Request) {
       .filter((entry) => entry.timesheet_id === sheet.id && entry.reason)
       .map((entry) => entry.reason)
       .join("; ");
-    return {
-      employeeName: name ?? "Someone",
-      periodStart: sheet.period_start,
-      periodEnd: sheet.period_end,
-      regularHours: hours,
-      totalHours: hours,
-      notes: notes || "Overtime is not calculated.",
-    };
+    return [
+      {
+        employeeName: name ?? "Someone",
+        periodStart: sheet.period_start,
+        periodEnd: sheet.period_end,
+        regularHours: hours,
+        totalHours: hours,
+        notes: notes || "Overtime is not calculated.",
+      },
+    ];
   });
   return new Response(payrollCsv(rows), {
     headers: {
