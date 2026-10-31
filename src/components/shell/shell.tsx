@@ -2,7 +2,8 @@ import { redirect } from "next/navigation";
 import { areasFor, ROLE_LABELS } from "@/lib/auth/permissions";
 import { ROLE_BADGE } from "@/lib/brand";
 import { signOut } from "@/app/login/actions";
-import { getSessionState } from "@/lib/auth/session";
+import { getSessionState, type CurrentProfile } from "@/lib/auth/session";
+import { createClient } from "@/lib/supabase/server";
 import { BrandLogo } from "@/components/brand/brand-logo";
 import { AccountLink } from "@/components/shell/account-link";
 import { AppNav } from "@/components/shell/app-nav";
@@ -21,9 +22,16 @@ export async function Shell({ children }: { children: React.ReactNode }) {
     );
   }
 
+  const badges = await badgeCounts(state.profile);
   const items = areasFor(state.profile).map((area) => ({
     href: area.href,
     label: area.label,
+    badge:
+      area.id === "scheduling"
+        ? badges.scheduling
+        : area.id === "payroll"
+          ? badges.payroll
+          : 0,
   }));
 
   return (
@@ -82,4 +90,31 @@ export async function Shell({ children }: { children: React.ReactNode }) {
       </div>
     </div>
   );
+}
+
+async function badgeCounts(profile: CurrentProfile) {
+  const supabase = await createClient();
+  const schedulingQuery = supabase
+    .from("timesheets")
+    .select("id", { count: "exact", head: true });
+  const payrollQuery = supabase
+    .from("timesheets")
+    .select("id", { count: "exact", head: true })
+    .in("status", ["approved", "sent"]);
+  const [scheduling, payroll] = await Promise.all([
+    profile.role === "employee"
+      ? schedulingQuery
+          .eq("profile_id", profile.id)
+          .in("status", ["draft", "returned"])
+      : profile.role === "owner" || profile.role === "production_manager"
+        ? schedulingQuery.eq("status", "submitted")
+        : Promise.resolve({ count: 0, error: null }),
+    profile.role === "owner" || profile.role === "payroll_admin"
+      ? payrollQuery
+      : Promise.resolve({ count: 0, error: null }),
+  ]);
+  return {
+    scheduling: scheduling.error ? 0 : (scheduling.count ?? 0),
+    payroll: payroll.error ? 0 : (payroll.count ?? 0),
+  };
 }
