@@ -5,6 +5,7 @@ import {
   ROLES,
   areasFor,
   canAccessArea,
+  canRecordPurchase,
   canSeeCosts,
   canSeePrivateRecords,
   type AccessProfile,
@@ -87,6 +88,9 @@ describe("role areas", () => {
     assert.equal(canSeeCosts(profiles.employee), false);
     assert.equal(canSeePrivateRecords(profiles.buyer), false);
     assert.equal(canSeePrivateRecords(profiles.production_manager), true);
+    assert.equal(canRecordPurchase(profiles.buyer), true);
+    assert.equal(canRecordPurchase(profiles.owner), true);
+    assert.equal(canRecordPurchase(profiles.production_manager), false);
   });
 
   it("lets a production manager with the purchasing switch open Purchasing", () => {

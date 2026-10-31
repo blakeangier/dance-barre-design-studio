@@ -18,6 +18,7 @@ type Draft = {
   type: string;
   lowOnly: boolean;
   reviewOnly: boolean;
+  showArchived: boolean;
 };
 
 function toParams(draft: Draft): URLSearchParams {
@@ -28,6 +29,7 @@ function toParams(draft: Draft): URLSearchParams {
   if (type) params.set("type", type);
   if (draft.lowOnly) params.set("low", "1");
   if (draft.reviewOnly) params.set("review", "1");
+  if (draft.showArchived) params.set("archived", "1");
   return params;
 }
 
@@ -42,6 +44,8 @@ export function InventoryBrowser({
   initialType,
   initialLow,
   initialReview,
+  showArchived: initialArchived,
+  canEdit,
 }: {
   items: InventoryMaterial[];
   loadError: boolean;
@@ -49,6 +53,8 @@ export function InventoryBrowser({
   initialType: string;
   initialLow: boolean;
   initialReview: boolean;
+  showArchived: boolean;
+  canEdit: boolean;
 }) {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -60,6 +66,7 @@ export function InventoryBrowser({
       type: initialType,
       lowOnly: initialLow,
       reviewOnly: initialReview,
+      showArchived: initialArchived,
     }).toString(),
   );
   const draftRef = useRef<Draft>({
@@ -67,12 +74,14 @@ export function InventoryBrowser({
     type: initialType,
     lowOnly: initialLow,
     reviewOnly: initialReview,
+    showArchived: initialArchived,
   });
 
   const [query, setQuery] = useState(initialQuery);
   const [type, setType] = useState(initialType);
   const [lowOnly, setLowOnly] = useState(initialLow);
   const [reviewOnly, setReviewOnly] = useState(initialReview);
+  const [showArchived, setShowArchived] = useState(initialArchived);
   const [appliedQuery, setAppliedQuery] = useState(initialQuery);
   const [appliedType, setAppliedType] = useState(initialType);
   const [open, setOpen] = useState(false);
@@ -82,6 +91,7 @@ export function InventoryBrowser({
   const urlType = searchParams.get("type") ?? "";
   const urlLow = searchParams.get("low") === "1";
   const urlReview = searchParams.get("review") === "1";
+  const urlArchived = searchParams.get("archived") === "1";
 
   function commit(draft: Draft) {
     const next = toParams(draft).toString();
@@ -98,6 +108,7 @@ export function InventoryBrowser({
       type: urlType,
       lowOnly: urlLow,
       reviewOnly: urlReview,
+      showArchived: urlArchived,
     }).toString();
     if (canonical === writtenUrl.current) return;
     writtenUrl.current = canonical;
@@ -106,14 +117,16 @@ export function InventoryBrowser({
       type: urlType,
       lowOnly: urlLow,
       reviewOnly: urlReview,
+      showArchived: urlArchived,
     };
     setQuery(urlQuery);
     setType(urlType);
     setLowOnly(urlLow);
     setReviewOnly(urlReview);
+    setShowArchived(urlArchived);
     setAppliedQuery(urlQuery);
     setAppliedType(urlType);
-  }, [urlQuery, urlType, urlLow, urlReview]);
+  }, [urlQuery, urlType, urlLow, urlReview, urlArchived]);
 
   useEffect(() => {
     const handle = window.setTimeout(() => {
@@ -189,6 +202,13 @@ export function InventoryBrowser({
     commit(next);
   }
 
+  function onArchivedChange(checked: boolean) {
+    const next = { ...draftRef.current, showArchived: checked };
+    remember(next);
+    setShowArchived(checked);
+    commit(next);
+  }
+
   function onSearchKeyDown(event: KeyboardEvent<HTMLInputElement>) {
     if (event.key === "Escape") {
       if (!open) return;
@@ -225,7 +245,17 @@ export function InventoryBrowser({
   return (
     <div className="flex flex-col gap-4">
       <div>
-        <h1 className="font-serif text-3xl text-ink">Inventory</h1>
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <h1 className="font-serif text-3xl text-ink">Inventory</h1>
+          {canEdit ? (
+            <Link
+              href="/inventory/new"
+              className="inline-flex min-h-12 items-center rounded-full bg-ink px-4 font-medium text-white"
+            >
+              New material
+            </Link>
+          ) : null}
+        </div>
         <p className="mt-2 text-sm text-muted" aria-live="polite">
           {materials.length} materials. On hand and reserved come from the stock
           ledger.
@@ -339,6 +369,15 @@ export function InventoryBrowser({
             className="size-5"
           />
           Needs review
+        </label>
+        <label className="flex min-h-12 items-center gap-2 text-sm">
+          <input
+            type="checkbox"
+            className="size-5"
+            checked={showArchived}
+            onChange={(event) => onArchivedChange(event.target.checked)}
+          />
+          Show archived
         </label>
       </div>
       {loadError ? (

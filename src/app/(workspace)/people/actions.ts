@@ -25,12 +25,14 @@ export async function updateAccess(formData: FormData) {
 
   const profileId = String(formData.get("profileId") ?? "");
   const roleValue = String(formData.get("role") ?? "");
+  const fullName = String(formData.get("fullName") ?? "").trim();
   const canPurchase = formData.get("canPurchase") === "on";
   const isActive = formData.get("isActive") === "on";
 
   if (!UUID_PATTERN.test(profileId) || !isAppRole(roleValue)) {
     done("missing-person");
   }
+  if (fullName.length < 1 || fullName.length > 120) done("name");
 
   if (profileId === state.profile.id) done("self");
 
@@ -63,15 +65,17 @@ export async function updateAccess(formData: FormData) {
         ...userResult.user.app_metadata,
         role: roleValue,
         can_purchase: canPurchase,
+        full_name: fullName,
       },
     },
   );
 
   if (authError) done("failed");
 
-  const { error: profileError } = await admin
+  const { error: profileError } = await supabase
     .from("profiles")
     .update({
+      full_name: fullName,
       role: roleValue,
       can_purchase: canPurchase,
       is_active: isActive,

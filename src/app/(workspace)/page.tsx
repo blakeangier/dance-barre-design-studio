@@ -107,6 +107,7 @@ async function HomeScreen({
           <label className="text-sm font-medium" htmlFor="fullName">
             Name
           </label>
+          <input type="hidden" name="next" value="/" />
           <input
             id="fullName"
             name="fullName"

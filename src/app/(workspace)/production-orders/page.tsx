@@ -1,7 +1,10 @@
+import Link from "next/link";
 import { Suspense } from "react";
+import { ListHeader } from "@/components/records/list-header";
 import { LoadingLine } from "@/components/shell/loading-line";
 import { NoAccess } from "@/components/shell/no-access";
-import { canSeePrivateRecords } from "@/lib/auth/permissions";
+import { canEditInventory, canSeePrivateRecords } from "@/lib/auth/permissions";
+import { firstQueryValue } from "@/lib/auth/notices";
 import { gateArea } from "@/lib/auth/session";
 import { money } from "@/lib/inventory/format";
 import { createClient } from "@/lib/supabase/server";
@@ -23,23 +26,33 @@ type PrivateRow = {
   contact_emails: string | null;
 };
 
-export default function OrdersPage() {
+type OrdersProps = {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+};
+
+export default function OrdersPage(props: OrdersProps) {
   return (
     <Suspense fallback={<LoadingLine />}>
-      <OrdersScreen />
+      <OrdersScreen searchParams={props.searchParams} />
     </Suspense>
   );
 }
 
-async function OrdersScreen() {
+async function OrdersScreen({
+  searchParams,
+}: {
+  searchParams: OrdersProps["searchParams"];
+}) {
   const gate = await gateArea("production-orders");
   if (!gate.ok) return <NoAccess reason={gate.reason} />;
-
+  const showArchived = firstQueryValue((await searchParams).archived) === "1";
   const supabase = await createClient();
-  const ordersResult = await supabase
+  let ordersQuery = supabase
     .from("costume_orders")
     .select("id, order_number, production_song, status, status_raw, order_date")
     .order("order_number");
+  if (!showArchived) ordersQuery = ordersQuery.is("archived_at", null);
+  const ordersResult = await ordersQuery;
   const privateResult = canSeePrivateRecords(gate.profile)
     ? await supabase
         .from("order_private")
@@ -54,7 +67,13 @@ async function OrdersScreen() {
 
   return (
     <div className="flex flex-col gap-4">
-      <h1 className="font-serif text-3xl text-ink">Orders</h1>
+      <ListHeader
+        title="Orders"
+        newHref="/production-orders/new"
+        newLabel="New order"
+        showArchived={showArchived}
+        canCreate={canEditInventory(gate.profile)}
+      />
       <ul className="flex flex-col gap-3">
         {((ordersResult.data ?? []) as OrderRow[]).map((order) => {
           const hidden = privates.get(order.id);
@@ -63,10 +82,13 @@ async function OrdersScreen() {
               key={order.id}
               className="rounded-2xl border border-line bg-card p-4"
             >
-              <p className="font-medium text-ink">
+              <Link
+                href={`/production-orders/${encodeURIComponent(order.order_number)}`}
+                className="inline-flex min-h-11 items-center font-medium text-ink"
+              >
                 {order.order_number}
                 {order.production_song ? ` · ${order.production_song}` : ""}
-              </p>
+              </Link>
               <p className="text-sm text-muted">
                 {order.status === "cancelled"
                   ? `Cancelled (${order.status_raw})`

@@ -201,6 +201,10 @@ export function canSeePrivateRecords(profile: AccessProfile): boolean {
   return canEditInventory(profile);
 }
 
+export function canRecordPurchase(profile: AccessProfile): boolean {
+  return profile.role === "owner" || profile.canPurchase;
+}
+
 export function areasFor(profile: AccessProfile): NavItem[] {
   return AREAS.filter((area) => canAccessArea(profile, area.id));
 }

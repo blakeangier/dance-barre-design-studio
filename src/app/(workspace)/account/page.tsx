@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { Suspense } from "react";
 import { changePassword } from "@/app/(workspace)/account/actions";
+import { updateMyDetails } from "@/app/(workspace)/actions";
 import { LoadingLine } from "@/components/shell/loading-line";
 import { NoAccess } from "@/components/shell/no-access";
 import { StatusNote } from "@/components/shell/status-note";
@@ -26,6 +27,22 @@ const ACTION_NOTICES: Record<string, { tone: "ok" | "error"; text: string }> = {
   failed: {
     tone: "error",
     text: "The password did not change. Try again.",
+  },
+  name: {
+    tone: "error",
+    text: "Enter a name, up to 120 characters.",
+  },
+  phone: {
+    tone: "error",
+    text: "Phone numbers can be up to 40 characters.",
+  },
+  "details-saved": {
+    tone: "ok",
+    text: "Your name and phone are saved.",
+  },
+  "save-failed": {
+    tone: "error",
+    text: "That could not be saved. Try again.",
   },
 };
 
@@ -65,16 +82,41 @@ async function AccountScreen({
       ) : null}
       <section className="rounded-2xl border border-line bg-card p-4">
         <h2 className="font-serif text-2xl text-ink">Signed in as</h2>
-        <dl className="mt-3 flex flex-col gap-3 text-sm">
-          <div>
-            <dt className="font-medium text-ink">Name</dt>
-            <dd className="mt-1 text-muted">{state.profile.fullName}</dd>
-          </div>
-          <div>
-            <dt className="font-medium text-ink">Email</dt>
-            <dd className="mt-1 break-all text-muted">{state.profile.email}</dd>
-          </div>
-        </dl>
+        <form action={updateMyDetails} className="mt-3 flex flex-col gap-3">
+          <input type="hidden" name="next" value="/account" />
+          <p className="text-sm text-muted">
+            Email stays with the login: {state.profile.email}
+          </p>
+          <label className="text-sm font-medium" htmlFor="fullName">
+            Name
+          </label>
+          <input
+            id="fullName"
+            name="fullName"
+            required
+            maxLength={120}
+            defaultValue={state.profile.fullName}
+            className="min-h-12 rounded-xl border border-line bg-card px-3 text-base text-ink"
+          />
+          <label className="text-sm font-medium" htmlFor="phone">
+            Phone
+          </label>
+          <input
+            id="phone"
+            name="phone"
+            type="tel"
+            autoComplete="tel"
+            maxLength={40}
+            defaultValue={state.profile.phone ?? ""}
+            className="min-h-12 rounded-xl border border-line bg-card px-3 text-base text-ink"
+          />
+          <button
+            type="submit"
+            className="min-h-12 rounded-full bg-ink px-4 font-medium text-white"
+          >
+            Save name and phone
+          </button>
+        </form>
       </section>
       <form
         action={changePassword}

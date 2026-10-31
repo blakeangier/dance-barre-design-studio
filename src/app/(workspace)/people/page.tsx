@@ -1,5 +1,6 @@
 import { Suspense } from "react";
 import { updateAccess } from "@/app/(workspace)/people/actions";
+import { ShowArchived } from "@/components/records/show-archived";
 import { firstQueryValue, noticeText } from "@/lib/auth/notices";
 import { ROLE_LABELS, ROLES, type AppRole } from "@/lib/auth/permissions";
 import { ROLE_BADGE } from "@/lib/brand";
@@ -48,13 +49,16 @@ async function PeopleScreen({
   if (!gate.ok) return <NoAccess reason={gate.reason} />;
 
   const params = await searchParams;
+  const showArchived = firstQueryValue(params.archived) === "1";
   const notice = noticeText(firstQueryValue(params.notice));
   const supabase = await createClient();
+  let peopleQuery = supabase
+    .from("profiles")
+    .select("id, full_name, role, can_purchase, is_active")
+    .order("full_name");
+  if (!showArchived) peopleQuery = peopleQuery.eq("is_active", true);
   const [peopleResult, contactsResult] = await Promise.all([
-    supabase
-      .from("profiles")
-      .select("id, full_name, role, can_purchase, is_active")
-      .order("full_name"),
+    peopleQuery,
     supabase.from("profile_contacts").select("profile_id, email"),
   ]);
 
@@ -80,10 +84,12 @@ async function PeopleScreen({
         <p className="mt-2 max-w-prose text-sm leading-relaxed text-muted">
           New accounts are created with the setup script, not from this screen.
           {isOwner
-            ? " You can change someone else's role here. You cannot change your own."
-            : " Role changes are limited to owners."}
+            ? " You can change someone else's name, role, and purchasing switch here. You cannot change your own access."
+            : " Role changes are limited to owners."}{" "}
+          Turned-off accounts stay hidden until you show archived.
         </p>
       </div>
+      <ShowArchived checked={showArchived} />
       {notice ? <StatusNote>{notice}</StatusNote> : null}
       {error ? (
         <p className="text-sm text-muted">The people list did not load.</p>
@@ -117,6 +123,20 @@ async function PeopleScreen({
                   className="mt-3 flex flex-col gap-3"
                 >
                   <input type="hidden" name="profileId" value={person.id} />
+                  <label
+                    className="text-sm font-medium"
+                    htmlFor={`name-${person.id}`}
+                  >
+                    Name
+                  </label>
+                  <input
+                    id={`name-${person.id}`}
+                    name="fullName"
+                    required
+                    maxLength={120}
+                    defaultValue={person.full_name}
+                    className="min-h-12 rounded-xl border border-line bg-card px-3 text-base text-ink"
+                  />
                   <label
                     className="text-sm font-medium"
                     htmlFor={`role-${person.id}`}

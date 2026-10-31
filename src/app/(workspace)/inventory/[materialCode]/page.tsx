@@ -2,6 +2,7 @@ import Link from "next/link";
 import { Suspense } from "react";
 import { logStock } from "@/app/(workspace)/inventory/actions";
 import { StockBadge } from "@/components/inventory/stock-badge";
+import { MaterialForm } from "@/components/records/material-form";
 import { LoadingLine } from "@/components/shell/loading-line";
 import { NoAccess } from "@/components/shell/no-access";
 import { StatusNote } from "@/components/shell/status-note";
@@ -9,6 +10,7 @@ import { canEditInventory, canSeeCosts } from "@/lib/auth/permissions";
 import { gateArea } from "@/lib/auth/session";
 import { firstQueryValue, noticeText } from "@/lib/auth/notices";
 import { metres, money } from "@/lib/inventory/format";
+import { EDIT_NOTICES } from "@/lib/records/edit";
 import { createClient } from "@/lib/supabase/server";
 
 type DetailProps = {
@@ -41,14 +43,18 @@ async function MaterialScreen({ params, searchParams }: DetailProps) {
   const { materialCode } = await params;
   const code = decodeURIComponent(materialCode);
   const query = await searchParams;
+  const noticeCode = firstQueryValue(query.notice) ?? "";
   const notice =
-    NOTICES[firstQueryValue(query.notice) ?? ""] ??
-    noticeText(firstQueryValue(query.notice));
+    NOTICES[noticeCode] ??
+    noticeText(noticeCode) ??
+    EDIT_NOTICES[noticeCode]?.text ??
+    null;
+  const noticeTone = EDIT_NOTICES[noticeCode]?.tone;
   const supabase = await createClient();
   const { data: material } = await supabase
     .from("materials")
     .select(
-      "id, material_code, fabric_name, colour_name, content, fabric_type, width_cm, bin_location, supplier_as_written, needs_review, needs_review_reason, registry_notes, registry_stock_raw",
+      "id, material_code, fabric_name, colour_name, colour_number, fabric_number, content, fabric_type, width_cm, gsm, bin_location, supplier_id, supplier_as_written, needs_review, needs_review_reason, registry_notes, registry_stock_raw, archived_at",
     )
     .eq("material_code", code)
     .maybeSingle();
@@ -64,29 +70,33 @@ async function MaterialScreen({ params, searchParams }: DetailProps) {
     );
   }
 
-  const [stockResult, historyResult, costResult] = await Promise.all([
-    supabase
-      .from("material_availability")
-      .select("on_hand_m, reserved_m, available_m, is_low_stock")
-      .eq("material_id", material.id)
-      .maybeSingle(),
-    supabase
-      .from("stock_transactions")
-      .select(
-        "txn_code, occurred_on, txn_type, qty_m, order_number_raw, description, entered_by",
-      )
-      .eq("material_id", material.id)
-      .order("occurred_on", { ascending: false })
-      .order("txn_code", { ascending: false }),
-    canSeeCosts(gate.profile)
-      ? supabase
-          .from("material_costs")
-          .select("list_price_per_m, net_price_per_m")
-          .eq("material_id", material.id)
-          .maybeSingle()
-      : Promise.resolve({ data: null }),
-  ]);
   const editor = canEditInventory(gate.profile);
+  const [stockResult, historyResult, costResult, suppliersResult] =
+    await Promise.all([
+      supabase
+        .from("material_availability")
+        .select("on_hand_m, reserved_m, available_m, is_low_stock")
+        .eq("material_id", material.id)
+        .maybeSingle(),
+      supabase
+        .from("stock_transactions")
+        .select(
+          "txn_code, occurred_on, txn_type, qty_m, order_number_raw, description, entered_by",
+        )
+        .eq("material_id", material.id)
+        .order("occurred_on", { ascending: false })
+        .order("txn_code", { ascending: false }),
+      canSeeCosts(gate.profile)
+        ? supabase
+            .from("material_costs")
+            .select("list_price_per_m, net_price_per_m, discount_entered")
+            .eq("material_id", material.id)
+            .maybeSingle()
+        : Promise.resolve({ data: null }),
+      editor
+        ? supabase.from("suppliers").select("id, name").order("name")
+        : Promise.resolve({ data: [] }),
+    ]);
 
   return (
     <div className="flex flex-col gap-4">
@@ -134,7 +144,20 @@ async function MaterialScreen({ params, searchParams }: DetailProps) {
           </p>
         ) : null}
       </div>
-      {notice ? <StatusNote>{notice}</StatusNote> : null}
+      {notice ? (
+        <StatusNote tone={noticeTone === "error" ? "error" : "ok"}>
+          {notice}
+        </StatusNote>
+      ) : null}
+      {editor ? (
+        <MaterialForm
+          material={material}
+          suppliers={
+            (suppliersResult.data ?? []) as { id: number; name: string }[]
+          }
+          cost={costResult.data}
+        />
+      ) : null}
       <form
         action={logStock.bind(null, material.material_code)}
         className="flex flex-col gap-3 rounded-2xl border border-line bg-card p-4"

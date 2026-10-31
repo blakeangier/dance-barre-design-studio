@@ -15,7 +15,7 @@ The shop is small (about eight people on the floor, about two thousand costumes 
 - An audit log records inserts, updates, and deletes on the core tables. Nobody using the app can edit or delete history.
 - The app can be installed on a phone home screen.
 
-Inventory, Orders, Styles, Suppliers, Purchases, and Review show the tracker. The other areas still say **Coming in a later phase**.
+Inventory, Orders, Styles, Suppliers, Purchases, and Review show the tracker. Owners and the production manager can create and edit those records. There is no delete button: archive hides a record, and cancelled is a status on an order. Employees see the lists and can log fabric they used. The other areas still say **Coming in a later phase**.
 
 ## How the pieces connect
 

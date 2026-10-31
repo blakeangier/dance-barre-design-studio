@@ -1,7 +1,10 @@
+import Link from "next/link";
 import { Suspense } from "react";
+import { ListHeader } from "@/components/records/list-header";
 import { LoadingLine } from "@/components/shell/loading-line";
 import { NoAccess } from "@/components/shell/no-access";
-import { canSeePrivateRecords } from "@/lib/auth/permissions";
+import { canEditInventory, canSeePrivateRecords } from "@/lib/auth/permissions";
+import { firstQueryValue } from "@/lib/auth/notices";
 import { gateArea } from "@/lib/auth/session";
 import { createClient } from "@/lib/supabase/server";
 
@@ -22,22 +25,33 @@ type ContactRow = {
   phone: string | null;
 };
 
-export default function SuppliersPage() {
+type SuppliersProps = {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+};
+
+export default function SuppliersPage(props: SuppliersProps) {
   return (
     <Suspense fallback={<LoadingLine />}>
-      <SuppliersScreen />
+      <SuppliersScreen searchParams={props.searchParams} />
     </Suspense>
   );
 }
 
-async function SuppliersScreen() {
+async function SuppliersScreen({
+  searchParams,
+}: {
+  searchParams: SuppliersProps["searchParams"];
+}) {
   const gate = await gateArea("suppliers");
   if (!gate.ok) return <NoAccess reason={gate.reason} />;
+  const showArchived = firstQueryValue((await searchParams).archived) === "1";
   const supabase = await createClient();
-  const suppliersResult = await supabase
+  let suppliersQuery = supabase
     .from("suppliers")
     .select("id, supplier_code, name, website, notes")
     .order("name");
+  if (!showArchived) suppliersQuery = suppliersQuery.is("archived_at", null);
+  const suppliersResult = await suppliersQuery;
   const contactsResult = canSeePrivateRecords(gate.profile)
     ? await supabase
         .from("supplier_contacts")
@@ -52,7 +66,13 @@ async function SuppliersScreen() {
 
   return (
     <div className="flex flex-col gap-4">
-      <h1 className="font-serif text-3xl text-ink">Suppliers</h1>
+      <ListHeader
+        title="Suppliers"
+        newHref="/suppliers/new"
+        newLabel="New supplier"
+        showArchived={showArchived}
+        canCreate={canEditInventory(gate.profile)}
+      />
       <ul className="flex flex-col gap-3">
         {((suppliersResult.data ?? []) as SupplierRow[]).map((supplier) => {
           const contact = contacts.get(supplier.id);
@@ -61,7 +81,12 @@ async function SuppliersScreen() {
               key={supplier.id}
               className="rounded-2xl border border-line bg-card p-4"
             >
-              <p className="font-medium text-ink">{supplier.name}</p>
+              <Link
+                href={`/suppliers/${encodeURIComponent(supplier.supplier_code)}`}
+                className="inline-flex min-h-11 items-center font-medium text-ink"
+              >
+                {supplier.name}
+              </Link>
               <p className="text-sm text-muted">{supplier.supplier_code}</p>
               {supplier.website ? (
                 <p className="text-sm text-muted">{supplier.website}</p>

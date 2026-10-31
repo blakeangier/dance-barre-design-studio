@@ -2,6 +2,7 @@ import { Suspense } from "react";
 import { InventoryBrowser } from "@/components/inventory/inventory-browser";
 import { LoadingLine } from "@/components/shell/loading-line";
 import { NoAccess } from "@/components/shell/no-access";
+import { canEditInventory } from "@/lib/auth/permissions";
 import { gateArea } from "@/lib/auth/session";
 import { firstQueryValue } from "@/lib/auth/notices";
 import {
@@ -69,14 +70,17 @@ async function InventoryScreen({
   if (!gate.ok) return <NoAccess reason={gate.reason} />;
 
   const params = await searchParams;
+  const showArchived = firstQueryValue(params.archived) === "1";
   const supabase = await createClient();
+  let materialsQuery = supabase
+    .from("materials")
+    .select(
+      "id, material_code, fabric_name, colour_name, fabric_type, content, bin_location, needs_review, supplier_as_written, suppliers(name)",
+    )
+    .order("material_code");
+  if (!showArchived) materialsQuery = materialsQuery.is("archived_at", null);
   const [materialsResult, stockResult] = await Promise.all([
-    supabase
-      .from("materials")
-      .select(
-        "id, material_code, fabric_name, colour_name, fabric_type, content, bin_location, needs_review, supplier_as_written, suppliers(name)",
-      )
-      .order("material_code"),
+    materialsQuery,
     supabase
       .from("material_availability")
       .select("material_id, on_hand_m, reserved_m, available_m, is_low_stock"),
@@ -120,6 +124,8 @@ async function InventoryScreen({
       initialType={firstQueryValue(params.type) ?? ""}
       initialLow={firstQueryValue(params.low) === "1"}
       initialReview={firstQueryValue(params.review) === "1"}
+      showArchived={showArchived}
+      canEdit={canEditInventory(gate.profile)}
     />
   );
 }
