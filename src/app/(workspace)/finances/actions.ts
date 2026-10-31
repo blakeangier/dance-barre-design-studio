@@ -90,6 +90,10 @@ export async function saveRecurringCost(formData: FormData) {
     start_date: startDate,
     end_date: text(formData.get("endDate")) || null,
     notes: text(formData.get("notes")) || null,
+    runs:
+      text(formData.get("runs")) === "production_only"
+        ? "production_only"
+        : "year_round",
   };
   const id = text(formData.get("id"));
   const supabase = await createClient();
@@ -98,6 +102,58 @@ export async function saveRecurringCost(formData: FormData) {
     : await supabase.from("recurring_costs").insert(row);
   if (error) redirect(`${back}?notice=failed`);
   redirect(`${back}?notice=saved`);
+}
+
+export async function saveProductionSeason(formData: FormData) {
+  await ownerOrRedirect("/finances/running");
+  const back = "/finances/running";
+  const name = text(formData.get("name"));
+  const startDate = text(formData.get("startDate"));
+  const endDate = text(formData.get("endDate"));
+  if (!name || !startDate || !endDate) redirect(`${back}?notice=failed`);
+  const { error } = await (
+    await createClient()
+  )
+    .from("production_seasons")
+    .insert({
+      name,
+      start_date: startDate,
+      end_date: endDate,
+    });
+  if (error) redirect(`${back}?notice=failed`);
+  redirect(`${back}?notice=saved`);
+}
+
+export async function archiveProductionSeason(formData: FormData) {
+  await ownerOrRedirect("/finances/running");
+  const { error } = await (
+    await createClient()
+  )
+    .from("production_seasons")
+    .update({ archived_at: new Date().toISOString() })
+    .eq("id", Number(text(formData.get("id"))));
+  if (error) redirect("/finances/running?notice=failed");
+  redirect("/finances/running?notice=saved");
+}
+
+export async function saveRunSettings(formData: FormData) {
+  await ownerOrRedirect("/finances/running");
+  const payroll =
+    text(formData.get("payrollRuns")) === "year_round"
+      ? "year_round"
+      : "production_only";
+  const variable =
+    text(formData.get("variableRuns")) === "year_round"
+      ? "year_round"
+      : "production_only";
+  const { error } = await (
+    await createClient()
+  )
+    .from("finance_run_settings")
+    .update({ payroll_runs: payroll, variable_spend_runs: variable })
+    .eq("id", true);
+  if (error) redirect("/finances/running?notice=failed");
+  redirect("/finances/running?notice=saved");
 }
 
 export async function archiveRecurringCost(formData: FormData) {

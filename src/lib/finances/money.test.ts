@@ -6,9 +6,12 @@ import {
   averageMonthlyPayroll,
   currentBiweeklyPeriod,
   employeeGross,
+  cents,
   monthlyAmount,
   monthlyCategorySpend,
   parseCardCsv,
+  productionDaysInMonth,
+  projectRunningYear,
   startupSummary,
   recurringMonthly,
   variableMonthly,
@@ -168,6 +171,51 @@ describe("payroll and the card file", () => {
     assert.equal(chart[0]?.pretax, 25);
     assert.equal(chart[0]?.hst, 3.25);
     assert.equal(chart[0]?.byCategory[0]?.startupPretax, 0);
+  });
+});
+
+describe("production seasons", () => {
+  it("charges production-only costs only on SAMPLE season days", () => {
+    assert.equal(
+      productionDaysInMonth(2026, 10, [
+        { start: "2026-10-01", end: "2026-10-10" },
+        { start: "2026-10-08", end: "2026-10-12" },
+      ]),
+      12,
+    );
+    const projection = projectRunningYear({
+      today: "2026-10-15",
+      recurring: [
+        {
+          monthlyPretax: 310,
+          monthlyHst: 0,
+          runs: "year_round",
+          category: "Insurance",
+        },
+        {
+          monthlyPretax: 620,
+          monthlyHst: 0,
+          runs: "production_only",
+          category: "WSIB",
+        },
+      ],
+      payrollMonthly: 100,
+      payrollRuns: "production_only",
+      variableMonthly: 50,
+      variableHstMonthly: 0,
+      variableRuns: "production_only",
+      seasons: [{ start: "2026-10-01", end: "2026-10-10" }],
+    });
+    const october = projection.months[0];
+    assert.equal(october?.productionDays, 10);
+    assert.equal(october?.days, 31);
+    assert.equal(october?.pretax, cents(310 + 770 * (10 / 31)));
+    assert.equal(projection.costPerProductionMonth, 1080);
+    assert.equal(
+      projection.yearPretax,
+      projection.seasonPretax + projection.offSeasonPretax,
+    );
+    assert.ok(projection.offSeasonPretax > projection.seasonPretax);
   });
 });
 

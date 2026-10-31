@@ -109,6 +109,144 @@ export function annualized(monthly: number): number {
   return cents(monthly * 12);
 }
 
+export type RunMode = "year_round" | "production_only";
+
+export type SeasonSpan = { start: string; end: string };
+
+function isoParts(isoDate: string): {
+  year: number;
+  month: number;
+  day: number;
+} {
+  const [year, month, day] = isoDate.split("-").map(Number);
+  return { year: year ?? 0, month: month ?? 1, day: day ?? 1 };
+}
+
+function dayIndex(isoDate: string): number {
+  const { year, month, day } = isoParts(isoDate);
+  return Math.floor(Date.UTC(year, month - 1, day) / 86_400_000);
+}
+
+export function daysInMonth(year: number, month: number): number {
+  return new Date(Date.UTC(year, month, 0)).getUTCDate();
+}
+
+export function productionDaysInMonth(
+  year: number,
+  month: number,
+  seasons: readonly SeasonSpan[],
+): number {
+  const days = daysInMonth(year, month);
+  const monthStart = dayIndex(`${year}-${String(month).padStart(2, "0")}-01`);
+  const covered = new Set<number>();
+  for (const season of seasons) {
+    const from = Math.max(monthStart, dayIndex(season.start));
+    const to = Math.min(monthStart + days - 1, dayIndex(season.end));
+    for (let day = from; day <= to; day += 1) covered.add(day);
+  }
+  return covered.size;
+}
+
+export function upcomingMonths(
+  today: string,
+  count = 12,
+): { year: number; month: number; label: string }[] {
+  const { year, month } = isoParts(today);
+  return Array.from({ length: count }, (_, index) => {
+    const date = new Date(Date.UTC(year, month - 1 + index, 1));
+    const nextYear = date.getUTCFullYear();
+    const nextMonth = date.getUTCMonth() + 1;
+    return {
+      year: nextYear,
+      month: nextMonth,
+      label: `${nextYear}-${String(nextMonth).padStart(2, "0")}`,
+    };
+  });
+}
+
+export type ProjectionCost = {
+  monthlyPretax: number;
+  monthlyHst: number;
+  runs: RunMode;
+  category: string;
+};
+
+export function projectRunningYear(input: {
+  today: string;
+  recurring: readonly ProjectionCost[];
+  payrollMonthly: number;
+  payrollRuns: RunMode;
+  variableMonthly: number;
+  variableHstMonthly: number;
+  variableRuns: RunMode;
+  seasons: readonly SeasonSpan[];
+}): {
+  costPerProductionMonth: number;
+  costPerProductionMonthHst: number;
+  months: {
+    month: string;
+    pretax: number;
+    hst: number;
+    productionDays: number;
+    days: number;
+  }[];
+  yearPretax: number;
+  seasonPretax: number;
+  offSeasonPretax: number;
+} {
+  let yearRound = 0;
+  let yearRoundHst = 0;
+  let production = 0;
+  let productionHst = 0;
+  for (const cost of input.recurring) {
+    const runs = cost.category === "WSIB" ? input.payrollRuns : cost.runs;
+    if (runs === "production_only") {
+      production += cost.monthlyPretax;
+      productionHst += cost.monthlyHst;
+    } else {
+      yearRound += cost.monthlyPretax;
+      yearRoundHst += cost.monthlyHst;
+    }
+  }
+  if (input.payrollRuns === "production_only")
+    production += input.payrollMonthly;
+  else yearRound += input.payrollMonthly;
+  if (input.variableRuns === "production_only") {
+    production += input.variableMonthly;
+    productionHst += input.variableHstMonthly;
+  } else {
+    yearRound += input.variableMonthly;
+    yearRoundHst += input.variableHstMonthly;
+  }
+  yearRound = cents(yearRound);
+  yearRoundHst = cents(yearRoundHst);
+  production = cents(production);
+  productionHst = cents(productionHst);
+
+  let seasonPretax = 0;
+  let offSeasonPretax = 0;
+  const months = upcomingMonths(input.today).map(({ year, month, label }) => {
+    const days = daysInMonth(year, month);
+    const productionDays = productionDaysInMonth(year, month, input.seasons);
+    const fraction = days === 0 ? 0 : productionDays / days;
+    const pretax = cents(yearRound + production * fraction);
+    const hst = cents(yearRoundHst + productionHst * fraction);
+    seasonPretax += (yearRound + production) * fraction;
+    offSeasonPretax += yearRound * (1 - fraction);
+    return { month: label, pretax, hst, productionDays, days };
+  });
+  const season = cents(seasonPretax);
+  const offSeason = cents(offSeasonPretax);
+  return {
+    costPerProductionMonth: cents(yearRound + production),
+    costPerProductionMonthHst: cents(yearRoundHst + productionHst),
+    months,
+    yearPretax: cents(season + offSeason),
+    seasonPretax: season,
+    offSeasonPretax: offSeason,
+  };
+}
+
 export function averageMonthlyPayroll(
   rows: readonly {
     start: string;

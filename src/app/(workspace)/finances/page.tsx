@@ -6,12 +6,13 @@ import { ownerGate } from "@/app/(workspace)/finances/guard";
 import { money } from "@/lib/inventory/format";
 import { todayInToronto } from "@/lib/inventory/usage";
 import {
-  annualized,
   averageMonthlyPayroll,
+  monthlyAmount,
   monthlyCategorySpend,
-  recurringMonthly,
+  projectRunningYear,
   startupSummary,
   variableMonthly,
+  type RunMode,
   type Frequency,
 } from "@/lib/finances/money";
 import { createClient } from "@/lib/supabase/server";
@@ -40,33 +41,48 @@ async function Overview() {
   if (!gate.ok) return <NoAccess reason={gate.reason} />;
   const today = todayInToronto();
   const supabase = await createClient();
-  const [startupResult, recurringResult, cardResult, payrollResult] =
-    await Promise.all([
-      supabase
-        .from("startup_costs")
-        .select(
-          "occurred_on, amount_cad, hst_cad, source, finance_categories(name, excludes_from_totals)",
-        )
-        .is("archived_at", null),
-      supabase
-        .from("recurring_costs")
-        .select(
-          "amount_cad, hst_cad, frequency, start_date, end_date, finance_categories(name, excludes_from_totals)",
-        )
-        .is("archived_at", null),
-      supabase
-        .from("card_transactions")
-        .select(
-          "transaction_date, amount_cad, hst_cad, excluded, is_startup, finance_categories(name, excludes_from_totals)",
-        )
-        .is("archived_at", null),
-      supabase
-        .from("payroll_actuals")
-        .select(
-          "period_start, period_end, gross_cad, employer_cpp_cad, employer_ei_cad",
-        )
-        .is("archived_at", null),
-    ]);
+  const [
+    startupResult,
+    recurringResult,
+    cardResult,
+    payrollResult,
+    seasonResult,
+    settingsResult,
+  ] = await Promise.all([
+    supabase
+      .from("startup_costs")
+      .select(
+        "occurred_on, amount_cad, hst_cad, source, finance_categories(name, excludes_from_totals)",
+      )
+      .is("archived_at", null),
+    supabase
+      .from("recurring_costs")
+      .select(
+        "amount_cad, hst_cad, frequency, runs, start_date, end_date, finance_categories(name, excludes_from_totals)",
+      )
+      .is("archived_at", null),
+    supabase
+      .from("card_transactions")
+      .select(
+        "transaction_date, amount_cad, hst_cad, excluded, is_startup, finance_categories(name, excludes_from_totals)",
+      )
+      .is("archived_at", null),
+    supabase
+      .from("payroll_actuals")
+      .select(
+        "period_start, period_end, gross_cad, employer_cpp_cad, employer_ei_cad",
+      )
+      .is("archived_at", null),
+    supabase
+      .from("production_seasons")
+      .select("start_date, end_date")
+      .is("archived_at", null),
+    supabase
+      .from("finance_run_settings")
+      .select("payroll_runs, variable_spend_runs")
+      .eq("id", true)
+      .maybeSingle(),
+  ]);
   const startup = (startupResult.data ?? []) as {
     occurred_on: string | null;
     amount_cad: number | string;
@@ -74,27 +90,21 @@ async function Overview() {
     source: string;
     finance_categories: CategoryLink | CategoryLink[] | null;
   }[];
-  const recurring = recurringMonthly(
-    (
-      (recurringResult.data ?? []) as {
-        amount_cad: number | string;
-        hst_cad: number | string;
-        frequency: Frequency;
-        start_date: string;
-        end_date: string | null;
-        finance_categories: CategoryLink | CategoryLink[] | null;
-      }[]
-    ).map((row) => ({
-      amount: Number(row.amount_cad),
-      hst: Number(row.hst_cad),
-      frequency: row.frequency,
-      start: row.start_date,
-      end: row.end_date,
-      excluded: Boolean(
-        categoryOf(row.finance_categories)?.excludes_from_totals,
-      ),
-    })),
-    today,
+  const recurringRows = (
+    (recurringResult.data ?? []) as {
+      amount_cad: number | string;
+      hst_cad: number | string;
+      frequency: Frequency;
+      runs: RunMode | null;
+      start_date: string;
+      end_date: string | null;
+      finance_categories: CategoryLink | CategoryLink[] | null;
+    }[]
+  ).filter(
+    (row) =>
+      row.start_date <= today &&
+      (row.end_date === null || row.end_date >= today) &&
+      !categoryOf(row.finance_categories)?.excludes_from_totals,
   );
   const cards = (cardResult.data ?? []) as {
     transaction_date: string;
@@ -160,7 +170,33 @@ async function Overview() {
       })),
   ];
   const startupTotal = startupSummary(startupLines);
-  const monthly = recurring.pretax + variable.pretax + payroll;
+  const runSettings = settingsResult.data as {
+    payroll_runs: RunMode;
+    variable_spend_runs: RunMode;
+  } | null;
+  const projection = projectRunningYear({
+    today,
+    recurring: recurringRows.map((row) => ({
+      monthlyPretax: monthlyAmount(Number(row.amount_cad), row.frequency),
+      monthlyHst: monthlyAmount(Number(row.hst_cad), row.frequency),
+      runs: row.runs === "production_only" ? "production_only" : "year_round",
+      category: categoryOf(row.finance_categories)?.name ?? "Uncategorized",
+    })),
+    payrollMonthly: payroll,
+    payrollRuns:
+      runSettings?.payroll_runs === "year_round"
+        ? "year_round"
+        : "production_only",
+    variableMonthly: variable.pretax,
+    variableHstMonthly: variable.hst,
+    variableRuns:
+      runSettings?.variable_spend_runs === "year_round"
+        ? "year_round"
+        : "production_only",
+    seasons: (
+      (seasonResult.data ?? []) as { start_date: string; end_date: string }[]
+    ).map((season) => ({ start: season.start_date, end: season.end_date })),
+  });
   const chart = monthlyCategorySpend([
     ...startup.flatMap((row) => {
       if (!row.occurred_on) return [];
@@ -227,36 +263,49 @@ async function Overview() {
         </figure>
         <figure className="rounded-2xl border border-line bg-card p-4">
           <figcaption className="text-sm text-muted">
-            Monthly run rate, pre-tax
-          </figcaption>
-          <p className="font-serif text-3xl text-ink">{money(monthly)}</p>
-          <p className="text-sm text-muted">
-            Recurring {money(recurring.pretax)} · Payroll {money(payroll)} ·
-            Card average {money(variable.pretax)}
-          </p>
-          <p className="text-sm text-muted">
-            HST about {money(recurring.hst + variable.hst)} a month
-          </p>
-        </figure>
-        <figure className="rounded-2xl border border-line bg-card p-4">
-          <figcaption className="text-sm text-muted">
-            Annualized run rate, pre-tax
+            Cost per production month, pre-tax
           </figcaption>
           <p className="font-serif text-3xl text-ink">
-            {money(annualized(monthly))}
+            {money(projection.costPerProductionMonth)}
+          </p>
+          <p className="text-sm text-muted">
+            HST {money(projection.costPerProductionMonthHst)} in a full
+            production month. Payroll {money(payroll)} · card average{" "}
+            {money(variable.pretax)}. Those two default to production days only.
           </p>
         </figure>
         <figure className="rounded-2xl border border-line bg-card p-4">
           <figcaption className="text-sm text-muted">
-            Startup beside a year of running costs
+            Next 12 months, pre-tax
+          </figcaption>
+          <p className="font-serif text-3xl text-ink">
+            {money(projection.yearPretax)}
+          </p>
+          <p className="text-sm text-muted">
+            In season {money(projection.seasonPretax)} · Off season{" "}
+            {money(projection.offSeasonPretax)}
+          </p>
+        </figure>
+        <figure className="rounded-2xl border border-line bg-card p-4">
+          <figcaption className="text-sm text-muted">
+            Startup beside the next year of running costs
           </figcaption>
           <p className="text-sm text-ink">
-            Startup {money(startupTotal.pretax)} · One year of run rate{" "}
-            {money(annualized(monthly))}
+            Startup {money(startupTotal.pretax)} · Projected running cost{" "}
+            {money(projection.yearPretax)}
           </p>
         </figure>
       </section>
       <section className="flex flex-col gap-3">
+        <h2 className="font-serif text-2xl text-ink">Next 12 months</h2>
+        <ul className="flex flex-col gap-1 text-sm">
+          {projection.months.map((month) => (
+            <li key={month.month}>
+              {month.month} · {money(month.pretax)} · {month.productionDays} of{" "}
+              {month.days} production days
+            </li>
+          ))}
+        </ul>
         <h2 className="font-serif text-2xl text-ink">
           Monthly spend by category
         </h2>
