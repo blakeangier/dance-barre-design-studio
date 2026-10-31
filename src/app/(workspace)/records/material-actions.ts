@@ -94,6 +94,8 @@ export async function saveMaterial(formData: FormData) {
     supplier_id: supplierId,
     supplier_as_written: supplierWritten,
     archived_at: archivedAt,
+    material_kind: String(formData.get("materialKind") ?? "fabric"),
+    unit_kind: String(formData.get("unitKind") ?? "metres"),
   };
 
   const supabase = await createClient();

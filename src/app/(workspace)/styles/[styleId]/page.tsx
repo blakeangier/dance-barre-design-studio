@@ -161,6 +161,12 @@ async function StyleScreen({ params, searchParams }: PageProps) {
       <h1 className="font-serif text-3xl text-ink">
         {typed.garment_description ?? typed.style_key}
       </h1>
+      <Link
+        href={`/styles/${typed.id}/tech-pack`}
+        className="inline-flex min-h-11 items-center text-sm text-ink"
+      >
+        Tech pack
+      </Link>
       {notice ? (
         <StatusNote tone={notice.tone}>{notice.text}</StatusNote>
       ) : null}

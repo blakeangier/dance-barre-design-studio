@@ -206,7 +206,7 @@ export function LogUseForm({
       className="mx-auto flex w-full max-w-lg flex-col gap-4"
     >
       <div>
-        <h1 className="font-serif text-3xl text-ink">Log fabric use</h1>
+        <h1 className="font-serif text-3xl text-ink">Log material use</h1>
         <p className="mt-2 text-sm text-muted">
           Subtract the metres you used on a sample or a production order.
         </p>

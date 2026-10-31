@@ -6,6 +6,7 @@ import {
   SelectField,
   TextField,
 } from "@/components/records/fields";
+import { MATERIAL_KINDS, UNIT_KINDS } from "@/lib/production/dancer";
 
 type SupplierOption = { id: number; name: string };
 
@@ -28,6 +29,8 @@ type MaterialFields = {
   supplier_id: number | null;
   supplier_as_written: string | null;
   archived_at: string | null;
+  material_kind?: string | null;
+  unit_kind?: string | null;
 };
 
 type CostFields = {
@@ -103,6 +106,30 @@ export function MaterialForm({
         label="Fabric number"
         defaultValue={material?.fabric_number}
       />
+      <SelectField
+        id="materialKind"
+        name="materialKind"
+        label="Kind"
+        defaultValue={material?.material_kind ?? "fabric"}
+      >
+        {MATERIAL_KINDS.map((kind) => (
+          <option key={kind.value} value={kind.value}>
+            {kind.label}
+          </option>
+        ))}
+      </SelectField>
+      <SelectField
+        id="unitKind"
+        name="unitKind"
+        label="Unit"
+        defaultValue={material?.unit_kind ?? "metres"}
+      >
+        {UNIT_KINDS.map((unit) => (
+          <option key={unit.value} value={unit.value}>
+            {unit.label}
+          </option>
+        ))}
+      </SelectField>
       <TextField
         id="fabricType"
         name="fabricType"

@@ -5,6 +5,7 @@ import {
   saveOrder,
   updateProductionStatus,
 } from "@/app/(workspace)/records/order-actions";
+import { saveOrderDates } from "@/app/(workspace)/records/production-actions";
 import {
   AreaField,
   CheckField,
@@ -56,6 +57,8 @@ type OrderRow = {
   archived_at: string | null;
   production_status: string | null;
   program_id: number | null;
+  due_on: string | null;
+  event_on: string | null;
 };
 
 type PrivateRow = {
@@ -101,7 +104,7 @@ async function OrderScreen({ params, searchParams }: PageProps) {
   const { data: order } = await supabase
     .from("costume_orders")
     .select(
-      "id, order_number, production_song, status, order_date, fitting_target_raw, accessory, female_total, male_total, notes, archived_at, production_status, program_id",
+      "id, order_number, production_song, status, order_date, fitting_target_raw, accessory, female_total, male_total, notes, archived_at, production_status, program_id, due_on, event_on",
     )
     .eq("order_number", orderNumber)
     .maybeSingle();
@@ -210,6 +213,26 @@ async function OrderScreen({ params, searchParams }: PageProps) {
         Orders
       </Link>
       <h1 className="font-serif text-3xl text-ink">{typed.order_number}</h1>
+      <nav className="no-print flex flex-col gap-2 text-sm">
+        <Link
+          href={`/production-orders/${encodeURIComponent(typed.order_number)}/fabric`}
+          className="inline-flex min-h-11 items-center text-ink"
+        >
+          Fabric needed vs available
+        </Link>
+        <Link
+          href={`/production-orders/${encodeURIComponent(typed.order_number)}/qc`}
+          className="inline-flex min-h-11 items-center text-ink"
+        >
+          Quality check
+        </Link>
+        <Link
+          href={`/production-orders/${encodeURIComponent(typed.order_number)}/fittings`}
+          className="inline-flex min-h-11 items-center text-ink"
+        >
+          Fittings and alterations
+        </Link>
+      </nav>
       <div>
         <StatusPill
           status={typed.production_status}
@@ -222,8 +245,65 @@ async function OrderScreen({ params, searchParams }: PageProps) {
           Program {programsResult.error ? "—" : (programName ?? "Unassigned")}
         </p>
         <p className="text-sm text-muted">
-          Due {typed.fitting_target_raw ?? "not set"}
+          Due {typed.due_on ?? typed.fitting_target_raw ?? "not set"}
+          {typed.event_on ? ` · Event ${typed.event_on}` : ""}
         </p>
+        {canStatus ? (
+          <form action={saveOrderDates} className="mt-3 flex flex-col gap-2">
+            <input
+              type="hidden"
+              name="orderNumber"
+              value={typed.order_number}
+            />
+            <label className="text-sm font-medium" htmlFor="dueOn">
+              Due date
+            </label>
+            <input
+              id="dueOn"
+              name="dueOn"
+              type="date"
+              defaultValue={typed.due_on ?? ""}
+              className="min-h-12 rounded-xl border border-line bg-card px-3"
+            />
+            <label className="text-sm font-medium" htmlFor="eventOn">
+              Competition or event
+            </label>
+            <input
+              id="eventOn"
+              name="eventOn"
+              type="date"
+              defaultValue={typed.event_on ?? ""}
+              className="min-h-12 rounded-xl border border-line bg-card px-3"
+            />
+            <label className="text-sm font-medium" htmlFor="milestoneStatus">
+              Milestone step
+            </label>
+            <select
+              id="milestoneStatus"
+              name="milestoneStatus"
+              className="min-h-12 rounded-xl border border-line bg-card px-3"
+              defaultValue=""
+            >
+              <option value="">No milestone change</option>
+              {PRODUCTION_STATUSES.map((status) => (
+                <option key={status.value} value={status.value}>
+                  {status.label}
+                </option>
+              ))}
+            </select>
+            <input
+              name="milestoneOn"
+              type="date"
+              className="min-h-12 rounded-xl border border-line bg-card px-3"
+            />
+            <button
+              type="submit"
+              className="min-h-12 rounded-full border border-ink px-4 text-sm font-medium"
+            >
+              Save dates
+            </button>
+          </form>
+        ) : null}
       </div>
       {showStatusForm || showProgramForm ? (
         <form
