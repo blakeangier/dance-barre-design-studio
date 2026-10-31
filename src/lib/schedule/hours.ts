@@ -112,6 +112,7 @@ export function elapsedMinutes(
   const start = localToUtc(shift.date, shift.start, timeZone);
   const end = localToUtc(endDate(shift), shift.end, timeZone);
   const span = Math.round((end.getTime() - start.getTime()) / 60000);
+  // Blake confirmed breaks are unpaid, so they always come off paid time.
   const worked = span - shift.breakMinutes;
   if (worked <= 0) return null;
   return worked;

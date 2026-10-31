@@ -23,7 +23,7 @@ export function payrollCsv(rows: PayrollExportRow[]): string {
     "notes",
   ];
   const lines = [
-    "# Not an ADP import file. Rebecca's ADP template is not in yet. Overtime is not calculated.",
+    "# Not an ADP import file. Rebecca's ADP template is not in yet. Unpaid breaks are already subtracted. Overtime is not calculated.",
     header.join(","),
     ...rows.map((row) =>
       [

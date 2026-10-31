@@ -129,7 +129,9 @@ async function PayrollScreen({
       <h1 className="font-serif text-3xl text-ink">Payroll</h1>
       <p className="text-sm text-muted">
         Dance Barre Design Studio Inc. · CAD · every two weeks. Times are
-        Toronto. This is not an ADP file yet.
+        Toronto. Paid hours already leave out the unpaid break. This is not an
+        ADP file yet. The first pay-period date and the overtime threshold stay
+        blank until they are confirmed.
       </p>
       {notice ? (
         <StatusNote tone={notice.tone}>{notice.text}</StatusNote>

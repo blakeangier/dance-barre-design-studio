@@ -100,6 +100,10 @@ export function TimesheetView({
         <p className="mt-2 font-serif text-2xl text-ink">
           {formatHours(submittedMinutes)}
         </p>
+        <p className="mt-1 text-sm text-muted">
+          Paid hours are the end time minus the start time, minus the unpaid
+          break.
+        </p>
       </div>
       {sheet.returned_comment ? (
         <p className="rounded-xl border border-red bg-card px-4 py-3 text-sm text-ink">
@@ -162,7 +166,7 @@ export function TimesheetView({
               <p className="text-sm text-muted">
                 Scheduled{" "}
                 {entry.scheduled_starts_at
-                  ? `${clock(entry.scheduled_starts_at)}–${clock(entry.scheduled_ends_at)} · ${formatHours(scheduled ?? 0)}`
+                  ? `${clock(entry.scheduled_starts_at)}–${clock(entry.scheduled_ends_at)} · ${formatHours(scheduled ?? 0)}${entry.scheduled_break_minutes ? ` · ${entry.scheduled_break_minutes} min unpaid break` : ""}`
                   : "Not on the schedule"}
               </p>
               <p className="text-sm text-ink">
@@ -210,7 +214,7 @@ export function TimesheetView({
                     className="text-sm font-medium"
                     htmlFor={`break-${entry.id}`}
                   >
-                    Unpaid break (minutes)
+                    Unpaid break
                   </label>
                   <input
                     id={`break-${entry.id}`}
@@ -294,7 +298,7 @@ export function TimesheetView({
               className="min-h-12 rounded-xl border border-line px-3 text-base"
             />
             <label className="text-sm font-medium" htmlFor="extraBreak">
-              Unpaid break (minutes)
+              Unpaid break
             </label>
             <input
               id="extraBreak"

@@ -15,6 +15,7 @@ describe("payroll csv", () => {
       },
     ]);
     assert.match(csv, /Not an ADP import file/);
+    assert.match(csv, /Unpaid breaks are already subtracted/);
     assert.match(csv, /"Sample, Person"/);
     assert.equal(csv.includes("$"), false);
   });

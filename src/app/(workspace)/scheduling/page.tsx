@@ -111,7 +111,8 @@ async function ScheduleScreen({
         <div>
           <h1 className="font-serif text-3xl text-ink">Schedule</h1>
           <p className="mt-1 text-sm text-muted">
-            {week} to {addDays(week, span - 1)}. Times are Toronto.
+            {week} to {addDays(week, span - 1)}. Times are Toronto. Paid hours
+            are the end time minus the start time, minus the unpaid break.
           </p>
         </div>
         <Link
@@ -201,7 +202,7 @@ async function ScheduleScreen({
                       {String(shift.start_local).slice(0, 5)}–
                       {String(shift.end_local).slice(0, 5)}
                       {shift.break_minutes
-                        ? ` · ${shift.break_minutes} min break`
+                        ? ` · ${shift.break_minutes} min unpaid break`
                         : ""}
                       {shift.status === "cancelled" ? " · Cancelled" : ""}
                     </p>
@@ -239,7 +240,7 @@ async function ScheduleScreen({
                           className="min-h-12 rounded-xl border border-line px-3 text-base"
                         />
                         <label className="text-sm font-medium" htmlFor={`break-${shift.id}`}>
-                          Unpaid break (minutes)
+                          Unpaid break
                         </label>
                         <input
                           id={`break-${shift.id}`}
@@ -335,7 +336,7 @@ async function ScheduleScreen({
             className="min-h-12 rounded-xl border border-line bg-card px-3 text-base"
           />
           <label className="text-sm font-medium" htmlFor="breakMinutes">
-            Unpaid break (minutes)
+            Unpaid break
           </label>
           <input
             id="breakMinutes"
@@ -447,7 +448,7 @@ async function ScheduleScreen({
             className="min-h-12 rounded-xl border border-line bg-card px-3 text-base"
           />
           <label className="text-sm font-medium" htmlFor="templateBreak">
-            Unpaid break (minutes)
+            Unpaid break
           </label>
           <input
             id="templateBreak"

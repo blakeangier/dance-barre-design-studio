@@ -101,6 +101,11 @@ create table public.shifts (
 comment on table public.shifts is
   'Shop schedule. ends_at is after starts_at in real time, including overnight and Toronto daylight-saving changes. Cancel a shift instead of deleting it.';
 
+comment on column public.shifts.break_minutes is
+  'Unpaid break in minutes. Paid time is end minus start minus this.';
+comment on column public.shift_templates.break_minutes is
+  'Unpaid break in minutes. Paid time is end minus start minus this.';
+
 create index shifts_profile_date_idx on public.shifts (profile_id, work_date);
 create index shifts_work_date_idx on public.shifts (work_date);
 
@@ -166,6 +171,11 @@ create table public.timesheet_entries (
 
 comment on table public.timesheet_entries is
   'Scheduled hours beside the hours the employee submits. A difference, an extra shift, or a shift not worked needs a short reason. Void a line instead of deleting it.';
+
+comment on column public.timesheet_entries.scheduled_break_minutes is
+  'Unpaid break from the schedule, in minutes.';
+comment on column public.timesheet_entries.actual_break_minutes is
+  'Unpaid break submitted for pay, in minutes. Paid time subtracts this.';
 
 create index timesheet_entries_sheet_idx on public.timesheet_entries (timesheet_id);
 create unique index timesheet_entries_shift_active_idx
