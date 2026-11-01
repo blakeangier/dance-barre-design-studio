@@ -1,7 +1,10 @@
 "use server";
 
 import { redirect } from "next/navigation";
-import { validatePasswordChange } from "@/lib/auth/password";
+import {
+  passwordUpdateIssue,
+  validatePasswordChange,
+} from "@/lib/auth/password";
 import { getSessionState } from "@/lib/auth/session";
 import { createClient } from "@/lib/supabase/server";
 
@@ -33,7 +36,10 @@ export async function changePassword(formData: FormData) {
   const { error: updateError } = await supabase.auth.updateUser({
     password: newPassword,
   });
-  if (updateError) accountRedirect("failed");
+  if (updateError) {
+    const issue = passwordUpdateIssue(updateError);
+    accountRedirect(issue === "invalid" ? "failed" : issue);
+  }
 
   accountRedirect("saved");
 }

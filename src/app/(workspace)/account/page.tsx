@@ -6,7 +6,12 @@ import { saveEmployeePrivate } from "@/app/(workspace)/records/staff-actions";
 import { LoadingLine } from "@/components/shell/loading-line";
 import { NoAccess } from "@/components/shell/no-access";
 import { StatusNote } from "@/components/shell/status-note";
-import { isPasswordIssue, passwordIssueText } from "@/lib/auth/password";
+import {
+  isPasswordIssue,
+  MIN_PASSWORD_LENGTH,
+  passwordIssueText,
+  WEAK_PASSWORD_TEXT,
+} from "@/lib/auth/password";
 import { firstQueryValue } from "@/lib/auth/notices";
 import { getSessionState } from "@/lib/auth/session";
 import { createClient } from "@/lib/supabase/server";
@@ -29,6 +34,10 @@ const ACTION_NOTICES: Record<string, { tone: "ok" | "error"; text: string }> = {
   failed: {
     tone: "error",
     text: "The password did not change. Try again.",
+  },
+  weak: {
+    tone: "error",
+    text: WEAK_PASSWORD_TEXT,
   },
   name: {
     tone: "error",
@@ -94,7 +103,8 @@ async function AccountScreen({
     <div className="mx-auto flex w-full max-w-md flex-col gap-4">
       <h1 className="font-serif text-3xl text-ink">My account</h1>
       <p className="text-sm leading-relaxed text-muted">
-        Change the password for your own sign-in. There is no reset email yet.
+        Change the password for your own sign-in. You need the current password
+        here. Forgot password on the sign-in page sends a reset link.
       </p>
       {notice ? (
         <StatusNote tone={notice.tone}>{notice.text}</StatusNote>
@@ -268,10 +278,10 @@ async function AccountScreen({
           type="password"
           autoComplete="new-password"
           required
-          minLength={10}
+          minLength={MIN_PASSWORD_LENGTH}
           className="min-h-12 rounded-xl border border-line bg-card px-3 text-base text-ink"
         />
-        <p className="text-sm text-muted">At least 10 characters.</p>
+        <p className="text-sm text-muted">At least 12 characters.</p>
         <label className="text-sm font-medium" htmlFor="confirmPassword">
           Confirm new password
         </label>
@@ -281,7 +291,7 @@ async function AccountScreen({
           type="password"
           autoComplete="new-password"
           required
-          minLength={10}
+          minLength={MIN_PASSWORD_LENGTH}
           className="min-h-12 rounded-xl border border-line bg-card px-3 text-base text-ink"
         />
         <button

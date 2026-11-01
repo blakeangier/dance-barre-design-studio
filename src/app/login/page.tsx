@@ -1,5 +1,7 @@
 import { Suspense } from "react";
+import Link from "next/link";
 import { firstQueryValue, noticeText } from "@/lib/auth/notices";
+import { MIN_PASSWORD_LENGTH } from "@/lib/auth/password";
 import { safeNextPath } from "@/lib/auth/redirect";
 import { sendMagicLink, signIn } from "@/app/login/actions";
 import { BrandLogo } from "@/components/brand/brand-logo";
@@ -67,9 +69,15 @@ async function LoginForms({
           type="password"
           autoComplete="current-password"
           required
-          minLength={12}
+          minLength={MIN_PASSWORD_LENGTH}
           className="min-h-12 rounded-xl border border-line bg-card px-3 text-base text-ink"
         />
+        <Link
+          href="/forgot-password"
+          className="inline-flex min-h-11 items-center self-start text-sm font-medium text-ink underline decoration-line underline-offset-4"
+        >
+          Forgot password?
+        </Link>
         <button
           type="submit"
           className="mt-2 min-h-12 rounded-full bg-ink px-4 text-base font-medium text-white"

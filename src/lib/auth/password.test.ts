@@ -3,6 +3,8 @@ import { describe, it } from "node:test";
 import {
   MIN_PASSWORD_LENGTH,
   passwordIssueText,
+  passwordUpdateIssue,
+  validateNewPassword,
   validatePasswordChange,
 } from "./password.ts";
 
@@ -10,9 +12,9 @@ const current = "current-pass";
 const next = "new-password";
 
 describe("validatePasswordChange", () => {
-  it("accepts a new password of 10 characters that matches and differs", () => {
+  it("accepts a new password of 12 characters that matches and differs", () => {
     const created = "a".repeat(MIN_PASSWORD_LENGTH);
-    assert.equal(created.length, 10);
+    assert.equal(created.length, 12);
     assert.deepEqual(
       validatePasswordChange({
         currentPassword: current,
@@ -35,7 +37,7 @@ describe("validatePasswordChange", () => {
     assert.equal(passwordIssueText("current"), "Enter your current password.");
   });
 
-  it("rejects a new password shorter than 10 characters", () => {
+  it("rejects a new password shorter than 12 characters", () => {
     const created = "a".repeat(MIN_PASSWORD_LENGTH - 1);
     assert.deepEqual(
       validatePasswordChange({
@@ -47,7 +49,7 @@ describe("validatePasswordChange", () => {
     );
     assert.equal(
       passwordIssueText("short"),
-      "New passwords need at least 10 characters.",
+      "New passwords need at least 12 characters.",
     );
   });
 
@@ -83,8 +85,8 @@ describe("validatePasswordChange", () => {
   });
 
   it("counts spaces and does not treat them as empty", () => {
-    const created = "          ";
-    assert.equal(created.length, 10);
+    const created = " ".repeat(MIN_PASSWORD_LENGTH);
+    assert.equal(created.length, 12);
     assert.deepEqual(
       validatePasswordChange({
         currentPassword: current,
@@ -92,6 +94,63 @@ describe("validatePasswordChange", () => {
         confirmPassword: created,
       }),
       { ok: true },
+    );
+  });
+});
+
+describe("validateNewPassword", () => {
+  it("accepts 12 characters that match, including spaces", () => {
+    const created = `Ab1${" ".repeat(MIN_PASSWORD_LENGTH - 3)}`;
+    assert.deepEqual(
+      validateNewPassword({ newPassword: created, confirmPassword: created }),
+      { ok: true },
+    );
+  });
+
+  it("rejects a short password before a mismatch", () => {
+    assert.deepEqual(
+      validateNewPassword({ newPassword: "short", confirmPassword: "other" }),
+      { ok: false, issue: "short" },
+    );
+  });
+
+  it("rejects a confirmation that does not match", () => {
+    const created = "a".repeat(MIN_PASSWORD_LENGTH);
+    assert.deepEqual(
+      validateNewPassword({
+        newPassword: created,
+        confirmPassword: `${created}!`,
+      }),
+      { ok: false, issue: "mismatch" },
+    );
+  });
+
+  it("does not trim the password", () => {
+    const created = `${"a".repeat(MIN_PASSWORD_LENGTH)} `;
+    assert.deepEqual(
+      validateNewPassword({
+        newPassword: created,
+        confirmPassword: created.trim(),
+      }),
+      { ok: false, issue: "mismatch" },
+    );
+  });
+});
+
+describe("passwordUpdateIssue", () => {
+  it("maps weak, reused, and expired sessions", () => {
+    assert.equal(passwordUpdateIssue({ code: "weak_password" }), "weak");
+    assert.equal(passwordUpdateIssue({ code: "same_password" }), "same");
+    assert.equal(passwordUpdateIssue({ code: "session_expired" }), "invalid");
+    assert.equal(
+      passwordUpdateIssue({ code: "over_request_rate_limit" }),
+      "failed",
+    );
+    assert.equal(
+      passwordUpdateIssue({
+        message: "Password should be at least 12 characters.",
+      }),
+      "weak",
     );
   });
 });

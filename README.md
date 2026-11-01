@@ -6,7 +6,7 @@ The shop is small (about eight people on the floor, about two thousand costumes 
 
 ## What is in this version
 
-- Sign-in with email and password. A magic-link option is on the same page for later, once email sending is connected. Any signed-in person can change their own password from My account in the header. The form asks for the current password again. There is no reset email yet.
+- Sign-in with email and password. A magic-link option is on the same page for later, once email sending is connected. Forgot password on the sign-in page emails a reset link through Supabase Auth. Any signed-in person can also change their own password from My account in the header. That form asks for the current password again. New passwords need at least 12 characters.
 - No public sign-up. An owner creates each account.
 - Four roles: owner, production manager, payroll, and employee. The menu only shows areas that role may open. The database enforces the same split, so hiding a button is not the lock.
 - Purchasing is a switch on a person, not a fifth role. Lindsay (an owner) and Elaine (the production manager) both buy outside costumes and dancewear, so they have the switch.
@@ -137,7 +137,7 @@ In the hosted dashboard, turn off public sign-up as well. The local config alrea
 
 Authentication → Sign In / Providers → Email → disable new sign-ups.
 
-Set the site URL to the address where the app is opened, and add `https://your-dev-url/auth/callback` to the redirect allow-list. Until a Vercel URL exists, `http://localhost:3000` is enough.
+Set the site URL to the address where the app is opened, with no path and no trailing slash. Add `https://your-dev-url/auth/callback` and `https://your-dev-url/auth/recovery` to the redirect allow-list. Until a Vercel URL exists, `http://localhost:3000` is enough. For the dashboard "Send password recovery" button, set the Reset password email template to the link in `supabase/templates/recovery.html`.
 
 ## Create the first accounts
 
@@ -244,7 +244,7 @@ Dashboard, Tasks, Tasks Done, Fabric Tags, and the empty form tabs are not loade
 1. Read this pull request and the migration file `supabase/migrations/*_foundation.sql`.
 2. Install Docker and Node 22 if you want a database on your own machine. `npx supabase start`, then fill `.env.local` from `npx supabase status`.
 3. Done. The foundation migration is applied on dev project `peikzgupvcgswyxcfibr`. Later migrations still go on with `npx supabase db push` after you review them.
-4. In the hosted dev project, turn off new sign-ups and set the site URL and `/auth/callback` redirect.
+4. In the hosted dev project, turn off new sign-ups and set the site URL, the `/auth/callback` redirect, and the `/auth/recovery` redirect. Paste `supabase/templates/recovery.html` into the Reset password email template.
 5. Put the dev URL and publishable key in `.env.local`. Put the secret key in `SUPABASE_SECRET_KEY`. Never commit them. Never add the secret to a variable whose name starts with `NEXT_PUBLIC_`.
 6. Done. The four accounts exist on the dev project. If someone needs a new temporary password, run `node scripts/create-users.mjs --reset-password` and share it in person, not in git.
 7. Done. Vercel project `dance-barre-design-studio` (team blake) is connected. Do not deploy a production database yet.
@@ -254,7 +254,7 @@ Dashboard, Tasks, Tasks Done, Fabric Tags, and the empty form tabs are not loade
 
 ## Assumptions
 
-- Sign-in is email plus password so the shop can get in before email delivery exists. Magic links are on the page and stay quiet until SMTP is connected.
+- Sign-in is email plus password so the shop can get in before a custom mail provider exists. Forgot password uses Supabase's built-in sender. Magic links are on the page and stay quiet until SMTP is connected.
 - Both companies are CAD for now. Blake confirmed that in October 2026. Either company can be switched to USD later by changing `home_currency`.
 - Employees can see coworker names, titles, and pronouns, for tasks and the schedule. They cannot see coworker email, phone, home address, emergency contacts, or pay. Home address and emergency contacts are for the person, owners, and payroll.
 - Every production manager can read supplier prices. Recording a purchase still needs the purchasing switch. Elaine has that switch.
