@@ -11,6 +11,7 @@ import { canEditInventory } from "@/lib/auth/permissions";
 import { firstQueryValue } from "@/lib/auth/notices";
 import { gateArea } from "@/lib/auth/session";
 import { SIZE_CODES } from "@/lib/records/edit";
+import { orderChoiceLabel, toOrderChoice } from "@/lib/orders/label";
 import { createClient } from "@/lib/supabase/server";
 
 export const metadata = { title: "Fittings" };
@@ -37,7 +38,7 @@ async function FittingsScreen({ params, searchParams }: PageProps) {
   const supabase = await createClient();
   const { data: order } = await supabase
     .from("costume_orders")
-    .select("id")
+    .select("id, order_number, production_song, programs(name)")
     .eq("order_number", orderNumber)
     .maybeSingle();
   if (!order) return <h1 className="font-serif text-3xl">Order not found</h1>;
@@ -64,7 +65,16 @@ async function FittingsScreen({ params, searchParams }: PageProps) {
         href={`/production-orders/${encodeURIComponent(orderNumber)}`}
         className="text-sm text-muted"
       >
-        {orderNumber}
+        {orderChoiceLabel(
+          toOrderChoice(
+            order as {
+              id: number;
+              order_number: string;
+              production_song: string | null;
+              programs: { name: string } | { name: string }[] | null;
+            },
+          ),
+        )}
       </Link>
       <h1 className="font-serif text-3xl text-ink">Fittings</h1>
       {notice === "saved" ? <StatusNote>Saved.</StatusNote> : null}

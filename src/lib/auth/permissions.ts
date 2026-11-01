@@ -170,6 +170,9 @@ export function canAccessArea(profile: AccessProfile, area: AreaId): boolean {
     case "suppliers":
       return role !== "program_director";
     case "tasks":
+      // Every active role can open My tasks. The database still hides tasks
+      // that are not theirs, except for owners and the production manager.
+      return true;
     case "scheduling":
       return (
         role === "owner" || role === "production_manager" || role === "employee"

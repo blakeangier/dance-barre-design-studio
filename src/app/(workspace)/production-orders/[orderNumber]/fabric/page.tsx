@@ -15,6 +15,7 @@ import { SIZE_CODES } from "@/lib/records/edit";
 import { countsForStyle } from "@/lib/orders/size-grid";
 import { fabricNeeded, shortageMetres } from "@/lib/production/fabric-need";
 import { orderFabricPosition } from "@/lib/inventory/usage";
+import { orderChoiceLabel, toOrderChoice } from "@/lib/orders/label";
 import { createClient } from "@/lib/supabase/server";
 
 export const metadata = { title: "Fabric needed" };
@@ -41,7 +42,7 @@ async function FabricScreen({ params, searchParams }: PageProps) {
   const supabase = await createClient();
   const { data: order } = await supabase
     .from("costume_orders")
-    .select("id, order_number")
+    .select("id, order_number, production_song, programs(name)")
     .eq("order_number", orderNumber)
     .maybeSingle();
   if (!order) {
@@ -126,7 +127,16 @@ async function FabricScreen({ params, searchParams }: PageProps) {
         href={`/production-orders/${encodeURIComponent(orderNumber)}`}
         className="text-sm text-muted"
       >
-        {orderNumber}
+        {orderChoiceLabel(
+          toOrderChoice(
+            order as {
+              id: number;
+              order_number: string;
+              production_song: string | null;
+              programs: { name: string } | { name: string }[] | null;
+            },
+          ),
+        )}
       </Link>
       <h1 className="font-serif text-3xl text-ink">
         Fabric needed vs available

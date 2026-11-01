@@ -43,6 +43,14 @@ insert into auth.users (
     now(), now(), '', '', ''
   );
 
+-- New non-owners start linked to every program. Clear that default, then
+-- keep only Elite Company so this test still proves a narrowed director.
+delete from public.director_programs
+where profile_id in (
+  '00000000-0000-0000-0000-0000000000e1',
+  '00000000-0000-0000-0000-0000000000e2'
+);
+
 insert into public.director_programs (profile_id, program_id)
 select '00000000-0000-0000-0000-0000000000e1', id
 from public.programs

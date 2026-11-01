@@ -6,6 +6,7 @@ import { NoAccess } from "@/components/shell/no-access";
 import { gateArea } from "@/lib/auth/session";
 import { todayInToronto } from "@/lib/inventory/usage";
 import { monthDays, orderTimingFlag } from "@/lib/production/schedule";
+import { orderChoiceLabel, toOrderChoice } from "@/lib/orders/label";
 import { createClient } from "@/lib/supabase/server";
 
 export const metadata = { title: "Calendar" };
@@ -37,7 +38,7 @@ async function CalendarScreen({ searchParams }: PageProps) {
     supabase
       .from("costume_orders")
       .select(
-        "id, order_number, production_status, due_on, event_on, program_id",
+        "id, order_number, production_song, production_status, due_on, event_on, program_id, programs(name)",
       )
       .is("archived_at", null),
     supabase
@@ -54,6 +55,8 @@ async function CalendarScreen({ searchParams }: PageProps) {
   const orders = (ordersResult.data ?? []) as {
     id: number;
     order_number: string;
+    production_song: string | null;
+    programs: { name: string } | { name: string }[] | null;
     production_status: string | null;
     due_on: string | null;
     event_on: string | null;
@@ -110,18 +113,27 @@ async function CalendarScreen({ searchParams }: PageProps) {
               <h2 className="font-medium text-ink">{day}</h2>
               {dues.map((order) => (
                 <p key={`due-${order.id}`} className="text-sm">
-                  Due {order.order_number}{" "}
+                  Due {orderChoiceLabel(toOrderChoice(order))}{" "}
                   {timing(order.id, order.production_status, milestones, today)}
                 </p>
               ))}
               {events.map((order) => (
                 <p key={`event-${order.id}`} className="text-sm">
-                  Event {order.order_number}
+                  Event {orderChoiceLabel(toOrderChoice(order))}
                 </p>
               ))}
               {fits.map((fit) => (
                 <p key={fit.id} className="text-sm">
-                  Fitting {fit.order_number_raw} {fit.dancer_label ?? ""}
+                  Fitting{" "}
+                  {(() => {
+                    const match = orders.find(
+                      (order) => order.order_number === fit.order_number_raw,
+                    );
+                    return match
+                      ? orderChoiceLabel(toOrderChoice(match))
+                      : (fit.order_number_raw ?? "Order");
+                  })()}{" "}
+                  {fit.dancer_label ?? ""}
                 </p>
               ))}
               {steps.map((step) => (

@@ -12,6 +12,7 @@ import { canEditInventory } from "@/lib/auth/permissions";
 import { firstQueryValue } from "@/lib/auth/notices";
 import { gateArea } from "@/lib/auth/session";
 import { qcBlocksPickup } from "@/lib/production/qc";
+import { orderChoiceLabel, toOrderChoice } from "@/lib/orders/label";
 import { createClient } from "@/lib/supabase/server";
 
 export const metadata = { title: "Quality check" };
@@ -39,7 +40,7 @@ async function QcScreen({ params, searchParams }: PageProps) {
   const supabase = await createClient();
   const { data: order } = await supabase
     .from("costume_orders")
-    .select("id")
+    .select("id, order_number, production_song, programs(name)")
     .eq("order_number", orderNumber)
     .maybeSingle();
   if (!order) return <h1 className="font-serif text-3xl">Order not found</h1>;
@@ -101,7 +102,16 @@ async function QcScreen({ params, searchParams }: PageProps) {
         href={`/production-orders/${encodeURIComponent(orderNumber)}`}
         className="text-sm text-muted"
       >
-        {orderNumber}
+        {orderChoiceLabel(
+          toOrderChoice(
+            order as {
+              id: number;
+              order_number: string;
+              production_song: string | null;
+              programs: { name: string } | { name: string }[] | null;
+            },
+          ),
+        )}
       </Link>
       <h1 className="font-serif text-3xl text-ink">Quality check</h1>
       <p className="text-sm text-ink">

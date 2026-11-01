@@ -184,6 +184,35 @@ export function payPeriodContaining(
   return { start, end: addDays(start, PAY_PERIOD_DAYS - 1) };
 }
 
+export function formatHourlyRate(amount: number, currency: string): string {
+  return `${currency} ${amount.toFixed(2)} per hour`;
+}
+
+// A rate is on file when today falls inside its effective dates.
+// A future or ended row is not the current rate.
+export function currentPayRates<
+  T extends { effectiveFrom: string; effectiveTo: string | null },
+>(rows: readonly T[], today: string): T[] {
+  return rows.filter(
+    (row) =>
+      row.effectiveFrom <= today &&
+      (row.effectiveTo === null || row.effectiveTo >= today),
+  );
+}
+
+export function dayHourTotals(
+  lines: readonly { workDate: string; minutes: number }[],
+): { workDate: string; minutes: number }[] {
+  const totals = new Map<string, number>();
+  for (const line of lines) {
+    if (line.minutes <= 0) continue;
+    totals.set(line.workDate, (totals.get(line.workDate) ?? 0) + line.minutes);
+  }
+  return [...totals.entries()]
+    .sort(([left], [right]) => left.localeCompare(right))
+    .map(([workDate, minutes]) => ({ workDate, minutes }));
+}
+
 export function datesInRange(start: string, end: string): string[] {
   const dates: string[] = [];
   let cursor = start;

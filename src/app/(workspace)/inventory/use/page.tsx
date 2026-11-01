@@ -18,6 +18,7 @@ import {
   type ReservationSlice,
   type UsagePurpose,
 } from "@/lib/inventory/usage";
+import { orderChoiceLabel, toOrderChoice } from "@/lib/orders/label";
 import { createClient } from "@/lib/supabase/server";
 
 export const metadata = { title: "Log material use" };
@@ -74,7 +75,9 @@ async function LogUseScreen({ searchParams }: PageProps) {
       .select("material_id, on_hand_m, reserved_m, available_m, is_low_stock"),
     supabase
       .from("costume_orders")
-      .select("id, order_number, production_song, status, archived_at")
+      .select(
+        "id, order_number, production_song, status, archived_at, programs(name)",
+      )
       .order("order_number"),
     supabase
       .from("styles")
@@ -149,13 +152,14 @@ async function LogUseScreen({ searchParams }: PageProps) {
       production_song: string | null;
       status: string | null;
       archived_at: string | null;
+      programs: { name: string } | { name: string }[] | null;
     }[]
   )
     .filter((order) => !order.archived_at && order.status !== "cancelled")
     .map((order) => ({
       id: order.id,
       orderNumber: order.order_number,
-      label: clip([order.order_number, order.production_song]),
+      label: orderChoiceLabel(toOrderChoice(order)),
     }));
 
   const styles: FabricStyleOption[] = (

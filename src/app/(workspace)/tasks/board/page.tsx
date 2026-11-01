@@ -13,10 +13,14 @@ import {
   TASK_PRIORITIES,
   TASK_STATUSES,
   taskPriorityLabel,
+  taskStatusLabel,
 } from "@/lib/tasks/tasks";
+import { OrderSelectOptions } from "@/components/orders/order-options";
+import { orderChoiceLabel, toOrderChoice } from "@/lib/orders/label";
+import { isTaskStatus } from "@/lib/tasks/tasks";
 import { createClient } from "@/lib/supabase/server";
 
-export const metadata = { title: "Task board" };
+export const metadata = { title: "All tasks" };
 
 type PageProps = {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
@@ -38,6 +42,7 @@ type TaskRow = {
   priority: string;
   assigned_to: string;
   order_id: number | null;
+  updated_at: string;
 };
 
 async function Board({ searchParams }: PageProps) {
@@ -47,33 +52,39 @@ async function Board({ searchParams }: PageProps) {
   const params = await searchParams;
   const person = firstQueryValue(params.person) ?? "";
   const order = firstQueryValue(params.order) ?? "";
+  const program = firstQueryValue(params.program) ?? "";
+  const status = firstQueryValue(params.status) ?? "";
   const priority = firstQueryValue(params.priority) ?? "";
   const overdueOnly = firstQueryValue(params.overdue) === "1";
   const today = todayInToronto();
   const supabase = await createClient();
   let query = supabase
     .from("tasks")
-    .select("id, title, status, due_on, priority, assigned_to, order_id");
+    .select(
+      "id, title, status, due_on, priority, assigned_to, order_id, updated_at",
+    );
   if (person) query = query.eq("assigned_to", person);
   if (/^\d+$/.test(order)) query = query.eq("order_id", Number(order));
+  if (isTaskStatus(status)) query = query.eq("status", status);
   if (priority) query = query.eq("priority", priority);
   if (overdueOnly) {
     query = query.lt("due_on", today).not("status", "in", "(done,cancelled)");
   }
-  const [tasksResult, peopleResult, ordersResult] = await Promise.all([
-    query,
-    supabase
-      .from("profiles")
-      .select("id, full_name")
-      .eq("is_active", true)
-      .neq("role", "program_director")
-      .order("full_name"),
-    supabase
-      .from("costume_orders")
-      .select("id, order_number")
-      .order("order_number"),
-  ]);
-  const tasks = (tasksResult.data ?? []) as TaskRow[];
+  const [tasksResult, peopleResult, ordersResult, programsResult] =
+    await Promise.all([
+      query,
+      supabase
+        .from("profiles")
+        .select("id, full_name")
+        .eq("is_active", true)
+        .order("full_name"),
+      supabase
+        .from("costume_orders")
+        .select(
+          "id, order_number, production_song, program_id, programs(name)",
+        ),
+      supabase.from("programs").select("id, name").order("name"),
+    ]);
   const people = (peopleResult.data ?? []) as {
     id: string;
     full_name: string;
@@ -81,11 +92,27 @@ async function Board({ searchParams }: PageProps) {
   const orders = (ordersResult.data ?? []) as {
     id: number;
     order_number: string;
+    production_song: string | null;
+    program_id: number | null;
+    programs: { name: string } | { name: string }[] | null;
   }[];
+  const choices = orders.map((row) => toOrderChoice(row));
+  const programOrderIds = new Set(
+    orders
+      .filter((row) => program !== "" && String(row.program_id) === program)
+      .map((row) => row.id),
+  );
+  const tasks = ((tasksResult.data ?? []) as TaskRow[]).filter((task) =>
+    program === ""
+      ? true
+      : task.order_id !== null && programOrderIds.has(task.order_id),
+  );
   const names = new Map(
     people.map((personRow) => [personRow.id, personRow.full_name]),
   );
-  const orderNames = new Map(orders.map((row) => [row.id, row.order_number]));
+  const orderNames = new Map(
+    choices.map((row) => [Number(row.id), orderChoiceLabel(row)]),
+  );
   const groups = groupByStatus(
     tasks.map((task) => ({ ...task, dueOn: task.due_on })),
   );
@@ -109,14 +136,19 @@ async function Board({ searchParams }: PageProps) {
       <Link href="/tasks" className="text-sm text-muted">
         My tasks
       </Link>
-      <h1 className="font-serif text-3xl text-ink">Team board</h1>
+      <h1 className="font-serif text-3xl text-ink">All tasks</h1>
+      <p className="text-sm text-muted">
+        Every task you can see, grouped by where it is in the process. My tasks
+        stays the shorter list.
+      </p>
       <form className="grid gap-2 sm:grid-cols-2" method="get">
         <select
           name="person"
           defaultValue={person}
+          aria-label="Assignee"
           className="min-h-12 rounded-xl border border-line bg-card px-3"
         >
-          <option value="">Everyone</option>
+          <option value="">Every assignee</option>
           {people.map((personRow) => (
             <option key={personRow.id} value={personRow.id}>
               {personRow.full_name}
@@ -124,16 +156,40 @@ async function Board({ searchParams }: PageProps) {
           ))}
         </select>
         <select
-          name="order"
-          defaultValue={order}
+          name="status"
+          defaultValue={status}
+          aria-label="Status"
           className="min-h-12 rounded-xl border border-line bg-card px-3"
         >
-          <option value="">Every order</option>
-          {orders.map((row) => (
-            <option key={row.id} value={row.id}>
-              {row.order_number}
+          <option value="">Every status</option>
+          {TASK_STATUSES.map((item) => (
+            <option key={item.value} value={item.value}>
+              {item.label}
             </option>
           ))}
+        </select>
+        <select
+          name="program"
+          defaultValue={program}
+          aria-label="Program"
+          className="min-h-12 rounded-xl border border-line bg-card px-3"
+        >
+          <option value="">Every program</option>
+          {((programsResult.data ?? []) as { id: number; name: string }[]).map(
+            (item) => (
+              <option key={item.id} value={item.id}>
+                {item.name}
+              </option>
+            ),
+          )}
+        </select>
+        <select
+          name="order"
+          defaultValue={order}
+          aria-label="Order"
+          className="min-h-12 rounded-xl border border-line bg-card px-3"
+        >
+          <OrderSelectOptions blank="Every order" orders={choices} />
         </select>
         <select
           name="priority"
@@ -178,26 +234,41 @@ async function Board({ searchParams }: PageProps) {
         ))}
       </section>
       <div className="grid gap-3 md:grid-cols-5">
-        {TASK_STATUSES.map((status) => (
-          <section key={status.value} className="flex flex-col gap-2">
-            <h2 className="font-serif text-xl text-ink">{status.label}</h2>
-            {groups[status.value].map((task) => (
-              <Link
-                key={task.id}
-                href={`/tasks/${task.id}`}
-                className="rounded-2xl border border-line bg-card p-3 text-sm"
-              >
-                <p className="font-medium text-ink">{task.title}</p>
-                <p className="text-muted">
-                  {names.get(task.assigned_to) ?? "Unassigned"} ·{" "}
-                  {taskPriorityLabel(task.priority)}
-                  {task.due_on ? ` · ${task.due_on}` : ""}
-                  {isOverdue(task.due_on, task.status, today)
-                    ? " · Overdue"
-                    : ""}
-                </p>
-              </Link>
-            ))}
+        {TASK_STATUSES.filter(
+          (item) => status === "" || item.value === status,
+        ).map((column) => (
+          <section key={column.value} className="flex flex-col gap-2">
+            <h2 className="font-serif text-xl text-ink">{column.label}</h2>
+            {groups[column.value].length === 0 ? (
+              <p className="text-sm text-muted">None</p>
+            ) : (
+              groups[column.value].map((task) => (
+                <Link
+                  key={task.id}
+                  href={`/tasks/${task.id}`}
+                  className="rounded-2xl border border-line bg-card p-3 text-sm"
+                >
+                  <p className="font-medium text-ink">{task.title}</p>
+                  <p className="text-muted">
+                    {names.get(task.assigned_to) ?? "Unassigned"}
+                    {task.order_id
+                      ? ` · ${orderNames.get(task.order_id) ?? "Order"}`
+                      : ""}
+                  </p>
+                  <p className="text-muted">
+                    {taskStatusLabel(task.status)} ·{" "}
+                    {taskPriorityLabel(task.priority)}
+                    {task.due_on ? ` · Due ${task.due_on}` : " · No due date"}
+                    {isOverdue(task.due_on, task.status, today)
+                      ? " · Overdue"
+                      : ""}
+                  </p>
+                  <p className="text-muted">
+                    Updated {task.updated_at.slice(0, 16).replace("T", " ")}
+                  </p>
+                </Link>
+              ))
+            )}
           </section>
         ))}
       </div>

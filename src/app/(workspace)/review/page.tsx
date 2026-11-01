@@ -16,6 +16,7 @@ import { firstQueryValue } from "@/lib/auth/notices";
 import { gateArea } from "@/lib/auth/session";
 import { photosForMaterials } from "@/lib/inventory/photo-urls";
 import { EDIT_NOTICES, REVIEW_STATUSES } from "@/lib/records/edit";
+import { orderChoiceLabel, toOrderChoice } from "@/lib/orders/label";
 import { createClient } from "@/lib/supabase/server";
 
 export const metadata = { title: "Review" };
@@ -38,7 +39,20 @@ type ReviewRow = {
     | { id: number; material_code: string }
     | { id: number; material_code: string }[]
     | null;
-  costume_orders: { order_number: string } | { order_number: string }[] | null;
+  costume_orders:
+    | {
+        id: number;
+        order_number: string;
+        production_song: string | null;
+        programs: { name: string } | { name: string }[] | null;
+      }
+    | {
+        id: number;
+        order_number: string;
+        production_song: string | null;
+        programs: { name: string } | { name: string }[] | null;
+      }[]
+    | null;
   styles:
     | { id: number; style_key: string }
     | { id: number; style_key: string }[]
@@ -79,7 +93,7 @@ async function ReviewScreen({
   let query = supabase
     .from("review_items")
     .select(
-      "id, review_code, source_sheet, record_label, question, priority, status, original_text, resolution, materials(id, material_code), costume_orders(order_number), styles(id, style_key)",
+      "id, review_code, source_sheet, record_label, question, priority, status, original_text, resolution, materials(id, material_code), costume_orders(id, order_number, production_song, programs(name)), styles(id, style_key)",
     )
     .order("priority")
     .order("review_code");
@@ -149,7 +163,7 @@ async function ReviewScreen({
                     href={`/production-orders/${encodeURIComponent(order.order_number)}`}
                     className="min-h-11 text-ink"
                   >
-                    Order {order.order_number}
+                    {orderChoiceLabel(toOrderChoice(order))}
                   </Link>
                 ) : null}
                 {style ? (

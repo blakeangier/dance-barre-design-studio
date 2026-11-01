@@ -134,8 +134,12 @@ describe("role areas", () => {
     assert.deepEqual(allowed(director), [
       "home",
       "production-orders",
+      "tasks",
       "styles",
     ]);
+    assert.equal(canAccessArea(profiles.payroll_admin, "tasks"), true);
+    assert.equal(canOpenTaskBoard(profiles.payroll_admin), false);
+    assert.equal(canOpenTaskBoard(director), false);
     assert.equal(canSeeCosts(director), false);
     assert.equal(canSeePrivateRecords(director), false);
     assert.equal(canUpdateOrderStatus(director), false);

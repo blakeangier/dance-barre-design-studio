@@ -8,6 +8,8 @@ import { canSuperviseTasks } from "@/lib/auth/permissions";
 import { firstQueryValue } from "@/lib/auth/notices";
 import { gateArea } from "@/lib/auth/session";
 import { TASK_PRIORITIES } from "@/lib/tasks/tasks";
+import { ORDER_CHOICE_COLUMNS, toOrderChoice } from "@/lib/orders/label";
+import { OrderSelectOptions } from "@/components/orders/order-options";
 import { createClient } from "@/lib/supabase/server";
 
 export const metadata = { title: "New task" };
@@ -38,13 +40,9 @@ async function NewTask({ searchParams }: PageProps) {
           .from("profiles")
           .select("id, full_name, role")
           .eq("is_active", true)
-          .neq("role", "program_director")
           .order("full_name")
       : Promise.resolve({ data: [] }),
-    supabase
-      .from("costume_orders")
-      .select("id, order_number")
-      .order("order_number"),
+    supabase.from("costume_orders").select(ORDER_CHOICE_COLUMNS),
     supabase.from("styles").select("id, style_key").order("style_key"),
   ]);
 
@@ -113,14 +111,12 @@ async function NewTask({ searchParams }: PageProps) {
           defaultValue={orderId}
           className="min-h-12 rounded-xl border border-line bg-card px-3"
         >
-          <option value="">None</option>
-          {(
-            (ordersResult.data ?? []) as { id: number; order_number: string }[]
-          ).map((order) => (
-            <option key={order.id} value={order.id}>
-              {order.order_number}
-            </option>
-          ))}
+          <OrderSelectOptions
+            blank="None"
+            orders={(ordersResult.data ?? []).map((order) =>
+              toOrderChoice(order),
+            )}
+          />
         </select>
         <label className="text-sm font-medium" htmlFor="styleId">
           Style

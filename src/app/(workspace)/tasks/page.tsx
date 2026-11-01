@@ -58,16 +58,22 @@ async function MyTasks() {
     <div className="mx-auto flex w-full max-w-lg flex-col gap-4">
       <div className="flex items-center justify-between gap-3">
         <h1 className="font-serif text-3xl text-ink">My tasks</h1>
-        <Link
-          href="/tasks/new"
-          className="inline-flex min-h-12 items-center rounded-full bg-ink px-4 text-sm font-medium text-white"
-        >
-          New task
-        </Link>
+        {gate.profile.role === "program_director" ? null : (
+          <Link
+            href="/tasks/new"
+            className="inline-flex min-h-12 items-center rounded-full bg-ink px-4 text-sm font-medium text-white"
+          >
+            New task
+          </Link>
+        )}
       </div>
+      <p className="text-sm text-muted">
+        My tasks is your list: work assigned to you, and tasks you asked of
+        someone else.
+      </p>
       {canOpenTaskBoard(gate.profile) ? (
-        <Link href="/tasks/board" className="text-sm text-ink">
-          Team board
+        <Link href="/tasks/board" className="text-sm font-medium text-ink">
+          All tasks
         </Link>
       ) : null}
       {TASK_STATUSES.map((status) => (

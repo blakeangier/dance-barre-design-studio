@@ -19,6 +19,7 @@ import {
   taskPriorityLabel,
   taskStatusLabel,
 } from "@/lib/tasks/tasks";
+import { orderChoiceLabel, toOrderChoice } from "@/lib/orders/label";
 import { createClient } from "@/lib/supabase/server";
 
 export const metadata = { title: "Task" };
@@ -98,7 +99,7 @@ async function TaskScreen({ params, searchParams }: PageProps) {
     typed.order_id
       ? supabase
           .from("costume_orders")
-          .select("order_number")
+          .select("id, order_number, production_song, programs(name)")
           .eq("id", typed.order_id)
           .maybeSingle()
       : Promise.resolve({ data: null }),
@@ -148,11 +149,11 @@ async function TaskScreen({ params, searchParams }: PageProps) {
       {orderResult.data ? (
         <Link
           href={`/production-orders/${encodeURIComponent(
-            (orderResult.data as { order_number: string }).order_number,
+            orderResult.data.order_number,
           )}`}
           className="text-sm text-ink"
         >
-          Order {(orderResult.data as { order_number: string }).order_number}
+          {orderChoiceLabel(toOrderChoice(orderResult.data))}
         </Link>
       ) : null}
       {assignee || canManage ? (
@@ -319,7 +320,6 @@ async function AssigneeSelect({
     .from("profiles")
     .select("id, full_name")
     .eq("is_active", true)
-    .neq("role", "program_director")
     .order("full_name");
   const people = (data ?? []) as { id: string; full_name: string }[];
   const listed = people.some((person) => person.id === current);

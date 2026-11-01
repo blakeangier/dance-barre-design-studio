@@ -15,6 +15,8 @@ import { firstQueryValue } from "@/lib/auth/notices";
 import { gateArea } from "@/lib/auth/session";
 import { EDIT_NOTICES } from "@/lib/records/edit";
 import { addDays, datesInRange, mondayOf } from "@/lib/schedule/hours";
+import { OrderSelectOptions } from "@/components/orders/order-options";
+import { orderChoiceLabel, toOrderChoice } from "@/lib/orders/label";
 import { createClient } from "@/lib/supabase/server";
 
 export const metadata = { title: "Schedule" };
@@ -35,7 +37,12 @@ type ShiftRow = {
   order_id: number | null;
   status: string;
 };
-type OrderOption = { id: number; order_number: string };
+type OrderOption = {
+  id: number;
+  order_number: string;
+  production_song: string | null;
+  programs: { name: string } | { name: string }[] | null;
+};
 
 const WEEKDAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 
@@ -91,9 +98,8 @@ async function ScheduleScreen({
       .order("start_local"),
     supabase
       .from("costume_orders")
-      .select("id, order_number")
-      .is("archived_at", null)
-      .order("order_number"),
+      .select("id, order_number, production_song, programs(name)")
+      .is("archived_at", null),
   ]);
   const people = (peopleResult.data ?? []) as Person[];
   const peopleById = new Map(people.map((person) => [person.id, person]));
@@ -175,7 +181,8 @@ async function ScheduleScreen({
         </div>
       ) : (
         <p className="text-sm text-muted">
-          Your shifts, and the shifts of the people you work with. Pay is not shown here.
+          Your shifts, and the shifts of the people you work with. Pay is not
+          shown here.
         </p>
       )}
       {days.map((day) => {
@@ -209,15 +216,49 @@ async function ScheduleScreen({
                     {shift.note ? (
                       <p className="text-sm text-ink">{shift.note}</p>
                     ) : null}
+                    {shift.order_id ? (
+                      <p className="text-sm text-muted">
+                        {orderChoiceLabel(
+                          toOrderChoice(
+                            orders.find(
+                              (order) => order.id === shift.order_id,
+                            ) ?? {
+                              id: shift.order_id,
+                              order_number: "Order",
+                              production_song: null,
+                              programs: null,
+                            },
+                          ),
+                        )}
+                      </p>
+                    ) : null}
                     {editor && shift.status === "scheduled" ? (
-                      <form action={saveShift} className="mt-3 flex flex-col gap-2">
+                      <form
+                        action={saveShift}
+                        className="mt-3 flex flex-col gap-2"
+                      >
                         <input type="hidden" name="week" value={week} />
                         <input type="hidden" name="span" value={span} />
                         <input type="hidden" name="shiftId" value={shift.id} />
-                        <input type="hidden" name="profileId" value={shift.profile_id} />
-                        <input type="hidden" name="workDate" value={shift.work_date} />
-                        <input type="hidden" name="orderId" value={shift.order_id ?? ""} />
-                        <label className="text-sm font-medium" htmlFor={`start-${shift.id}`}>
+                        <input
+                          type="hidden"
+                          name="profileId"
+                          value={shift.profile_id}
+                        />
+                        <input
+                          type="hidden"
+                          name="workDate"
+                          value={shift.work_date}
+                        />
+                        <input
+                          type="hidden"
+                          name="orderId"
+                          value={shift.order_id ?? ""}
+                        />
+                        <label
+                          className="text-sm font-medium"
+                          htmlFor={`start-${shift.id}`}
+                        >
                           Start
                         </label>
                         <input
@@ -228,7 +269,10 @@ async function ScheduleScreen({
                           defaultValue={String(shift.start_local).slice(0, 5)}
                           className="min-h-12 rounded-xl border border-line px-3 text-base"
                         />
-                        <label className="text-sm font-medium" htmlFor={`end-${shift.id}`}>
+                        <label
+                          className="text-sm font-medium"
+                          htmlFor={`end-${shift.id}`}
+                        >
                           End
                         </label>
                         <input
@@ -239,7 +283,10 @@ async function ScheduleScreen({
                           defaultValue={String(shift.end_local).slice(0, 5)}
                           className="min-h-12 rounded-xl border border-line px-3 text-base"
                         />
-                        <label className="text-sm font-medium" htmlFor={`break-${shift.id}`}>
+                        <label
+                          className="text-sm font-medium"
+                          htmlFor={`break-${shift.id}`}
+                        >
                           Unpaid break
                         </label>
                         <input
@@ -250,7 +297,10 @@ async function ScheduleScreen({
                           defaultValue={shift.break_minutes}
                           className="min-h-12 rounded-xl border border-line px-3 text-base"
                         />
-                        <label className="text-sm font-medium" htmlFor={`note-${shift.id}`}>
+                        <label
+                          className="text-sm font-medium"
+                          htmlFor={`note-${shift.id}`}
+                        >
                           Note or task
                         </label>
                         <input
@@ -362,12 +412,10 @@ async function ScheduleScreen({
             name="orderId"
             className="min-h-12 rounded-xl border border-line bg-card px-3 text-base"
           >
-            <option value="">No order</option>
-            {orders.map((order) => (
-              <option key={order.id} value={order.id}>
-                {order.order_number}
-              </option>
-            ))}
+            <OrderSelectOptions
+              blank="No order"
+              orders={orders.map((order) => toOrderChoice(order))}
+            />
           </select>
           <button
             type="submit"

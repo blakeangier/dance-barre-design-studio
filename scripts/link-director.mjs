@@ -9,9 +9,10 @@
 //
 // Programs: Elite Company, CREW, Petite Elite, Recreational.
 // Recreational has no director yet.
-// A director with no link sees no orders. An order with no program is
-// hidden from every director. Running this again with a different --program
-// moves her to that program.
+// A new director starts with every program checked. This script replaces
+// those links with the one program you name. A director with no link sees
+// no orders. An order with no program is hidden from every director.
+// Running this again with a different --program moves her to that program.
 //
 // The role has to live in app_metadata. SQL alone cannot create the login.
 // After this script, the link is:
