@@ -264,8 +264,8 @@ select is(
 );
 select is(
   (select count(*)::int from public.employee_compensation),
-  0,
-  'employee cannot read compensation rows'
+  1,
+  'employee can read their own compensation row'
 );
 select is(
   (select count(*)::int from public.supplier_prices),

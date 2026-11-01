@@ -18,6 +18,7 @@ import {
   isProductionStatus,
 } from "@/lib/orders/production-status";
 import { orderTimingFlag } from "@/lib/production/schedule";
+import { orderChoiceLabel, toOrderChoice } from "@/lib/orders/label";
 import { createClient } from "@/lib/supabase/server";
 
 export const metadata = { title: "Orders" };
@@ -189,8 +190,7 @@ async function OrdersScreen({
                 href={`/production-orders/${encodeURIComponent(order.order_number)}`}
                 className="inline-flex min-h-11 items-center font-medium text-ink"
               >
-                {order.order_number}
-                {order.production_song ? ` · ${order.production_song}` : ""}
+                {orderChoiceLabel(toOrderChoice(order))}
               </Link>
               <div className="mt-2">
                 <StatusPill
@@ -209,10 +209,7 @@ async function OrdersScreen({
                   <ProductionSteps status={order.production_status} />
                 )}
               </div>
-              <p className="mt-2 text-sm text-ink">
-                Program {programLabel(order)}
-              </p>
-              <p className="text-sm text-muted">
+              <p className="mt-2 text-sm text-muted">
                 {cancelled
                   ? `Cancelled (${order.status_raw ?? "cancelled"})`
                   : `Due ${order.fitting_target_raw ?? "not set"}`}
@@ -257,11 +254,4 @@ function flagLabel(
       {flag === "late" ? "Late" : "At risk"}
     </span>
   );
-}
-
-function programLabel(order: OrderRow): string {
-  const linked = Array.isArray(order.programs)
-    ? order.programs[0]
-    : order.programs;
-  return linked?.name ?? "Unassigned";
 }

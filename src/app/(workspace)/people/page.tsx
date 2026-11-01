@@ -267,8 +267,9 @@ async function PeopleScreen({
                         Programs this director can see
                       </legend>
                       <p className="text-sm text-muted">
-                        A program director sees only the programs checked here.
-                        With none checked, she sees no orders.
+                        A new account starts with every program checked and the
+                        account on. A program director sees only the programs
+                        still checked. With none checked, she sees no orders.
                       </p>
                       {programs.map((program) => (
                         <label

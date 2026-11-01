@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { Suspense } from "react";
 import { changePassword } from "@/app/(workspace)/account/actions";
+import { PayAndHours } from "@/app/(workspace)/account/pay-and-hours";
 import { updateMyDetails } from "@/app/(workspace)/actions";
 import { saveEmployeePrivate } from "@/app/(workspace)/records/staff-actions";
 import { LoadingLine } from "@/components/shell/loading-line";
@@ -157,6 +158,7 @@ async function AccountScreen({
           </button>
         </form>
       </section>
+      <PayAndHours profile={state.profile} />
       <form
         action={saveEmployeePrivate}
         className="flex flex-col gap-3 rounded-2xl border border-line bg-card p-4"

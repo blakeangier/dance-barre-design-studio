@@ -1,7 +1,10 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import {
+  currentPayRates,
+  dayHourTotals,
   elapsedMinutes,
+  formatHourlyRate,
   hoursFromMinutes,
   payPeriodContaining,
   payableMinutes,
@@ -103,5 +106,36 @@ describe("bi-weekly pay periods", () => {
       start: "2026-01-19",
       end: "2026-02-01",
     });
+  });
+});
+
+describe("own pay and hours", () => {
+  it("keeps the rate that is in effect today", () => {
+    const rows = [
+      { effectiveFrom: "2025-01-01", effectiveTo: "2025-12-31", id: "old" },
+      { effectiveFrom: "2026-01-01", effectiveTo: null, id: "current" },
+      { effectiveFrom: "2027-01-01", effectiveTo: null, id: "future" },
+    ];
+    assert.deepEqual(
+      currentPayRates(rows, "2026-06-01").map((row) => row.id),
+      ["current"],
+    );
+    assert.deepEqual(currentPayRates(rows, "2024-01-01"), []);
+    assert.equal(formatHourlyRate(18.5, "CAD"), "CAD 18.50 per hour");
+  });
+
+  it("adds hours on the same day and skips empty lines", () => {
+    assert.deepEqual(
+      dayHourTotals([
+        { workDate: "2026-01-06", minutes: 120 },
+        { workDate: "2026-01-05", minutes: 60 },
+        { workDate: "2026-01-05", minutes: 30 },
+        { workDate: "2026-01-07", minutes: 0 },
+      ]),
+      [
+        { workDate: "2026-01-05", minutes: 90 },
+        { workDate: "2026-01-06", minutes: 120 },
+      ],
+    );
   });
 });

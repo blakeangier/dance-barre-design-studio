@@ -23,6 +23,7 @@ import {
   type UsageLogEntry,
   type UsagePurpose,
 } from "@/lib/inventory/usage";
+import { orderChoiceLabel, toOrderChoice } from "@/lib/orders/label";
 import { createClient } from "@/lib/supabase/server";
 
 export const metadata = { title: "Usage log" };
@@ -114,7 +115,9 @@ async function UsageScreen({ searchParams }: PageProps) {
       .or("usage_kind.not.is.null,reverses_id.not.is.null")
       .order("created_at", { ascending: false }),
     supabase.from("materials").select("id, material_code, fabric_name"),
-    supabase.from("costume_orders").select("id, order_number"),
+    supabase
+      .from("costume_orders")
+      .select("id, order_number, production_song, programs(name)"),
     supabase.from("styles").select("id, style_key, garment_description"),
     seeAll
       ? supabase.from("profiles").select("id, full_name").order("full_name")
@@ -161,9 +164,14 @@ async function UsageScreen({ searchParams }: PageProps) {
     ).map((row) => [row.id, row]),
   );
   const orderNumber = new Map(
-    ((ordersResult.data ?? []) as { id: number; order_number: string }[]).map(
-      (row) => [row.id, row.order_number],
-    ),
+    (
+      (ordersResult.data ?? []) as {
+        id: number;
+        order_number: string;
+        production_song: string | null;
+        programs: { name: string } | { name: string }[] | null;
+      }[]
+    ).map((row) => [row.id, orderChoiceLabel(toOrderChoice(row))]),
   );
   const styleLabel = new Map(
     (

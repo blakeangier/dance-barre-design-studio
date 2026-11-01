@@ -9,6 +9,7 @@ import { StatusNote } from "@/components/shell/status-note";
 import { canUpdateOrderStatus } from "@/lib/auth/permissions";
 import { firstQueryValue } from "@/lib/auth/notices";
 import { gateArea } from "@/lib/auth/session";
+import { orderChoiceLabel, toOrderChoice } from "@/lib/orders/label";
 import { createClient } from "@/lib/supabase/server";
 
 export const metadata = { title: "Programs" };
@@ -31,6 +32,7 @@ type OrderRow = {
   status: string | null;
   production_status: string | null;
   program_id: number | null;
+  programs: { name: string } | { name: string }[] | null;
 };
 
 type ProgramRow = { id: number; name: string };
@@ -53,7 +55,7 @@ async function ProgramsScreen({ searchParams }: PageProps) {
     supabase
       .from("costume_orders")
       .select(
-        "id, order_number, production_song, status, production_status, program_id",
+        "id, order_number, production_song, status, production_status, program_id, programs(name)",
       )
       .is("archived_at", null)
       .order("order_number"),
@@ -120,7 +122,7 @@ async function ProgramsScreen({ searchParams }: PageProps) {
                         type="checkbox"
                         name="orderId"
                         value={order.id}
-                        aria-label={`Select ${order.order_number}`}
+                        aria-label={`Select ${orderChoiceLabel(toOrderChoice(order))}`}
                         className="size-5"
                       />
                     ) : null}
@@ -129,10 +131,7 @@ async function ProgramsScreen({ searchParams }: PageProps) {
                         href={`/production-orders/${encodeURIComponent(order.order_number)}`}
                         className="inline-flex min-h-11 items-center font-medium text-ink"
                       >
-                        {order.order_number}
-                        {order.production_song
-                          ? ` · ${order.production_song}`
-                          : ""}
+                        {orderChoiceLabel(toOrderChoice(order))}
                       </Link>
                       <div className="mt-1">
                         <StatusPill

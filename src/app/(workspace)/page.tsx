@@ -21,6 +21,7 @@ import {
 import { LoadingLine } from "@/components/shell/loading-line";
 import { NoAccess } from "@/components/shell/no-access";
 import { StatusNote } from "@/components/shell/status-note";
+import { orderChoiceLabel, toOrderChoice } from "@/lib/orders/label";
 import Link from "next/link";
 
 export const metadata = {
@@ -180,7 +181,7 @@ async function DirectorOrders() {
   const { data, error } = await supabase
     .from("costume_orders")
     .select(
-      "id, order_number, production_song, status, production_status, fitting_target_raw",
+      "id, order_number, production_song, status, production_status, fitting_target_raw, programs(name)",
     )
     .is("archived_at", null)
     .order("order_number");
@@ -188,6 +189,7 @@ async function DirectorOrders() {
     id: number;
     order_number: string;
     production_song: string | null;
+    programs: { name: string } | { name: string }[] | null;
     status: string | null;
     production_status: string | null;
     fitting_target_raw: string | null;
@@ -218,8 +220,7 @@ async function DirectorOrders() {
                   href={`/production-orders/${encodeURIComponent(order.order_number)}`}
                   className="inline-flex min-h-11 items-center font-medium text-ink"
                 >
-                  {order.order_number}
-                  {order.production_song ? ` · ${order.production_song}` : ""}
+                  {orderChoiceLabel(toOrderChoice(order))}
                 </Link>
                 <div className="mt-2">
                   <StatusPill

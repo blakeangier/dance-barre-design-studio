@@ -27,6 +27,17 @@ async function readyProfile() {
   return state.profile;
 }
 
+async function assigneeIsActive(profileId: string): Promise<boolean> {
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("profiles")
+    .select("id")
+    .eq("id", profileId)
+    .eq("is_active", true)
+    .maybeSingle();
+  return Boolean(data);
+}
+
 export async function createTask(formData: FormData) {
   const profile = await readyProfile();
   const title = text(formData.get("title"));
@@ -36,6 +47,7 @@ export async function createTask(formData: FormData) {
   const assignedTo = supervisor
     ? text(formData.get("assignedTo")) || profile.id
     : profile.id;
+  if (!(await assigneeIsActive(assignedTo))) redirect(`${back}?notice=failed`);
   const priority = text(formData.get("priority")) || "normal";
   if (!isTaskPriority(priority)) redirect(`${back}?notice=failed`);
   const materialCode = text(formData.get("materialCode"));
@@ -91,7 +103,11 @@ export async function updateTask(formData: FormData) {
     patch.description = text(formData.get("description")) || null;
     patch.due_on = text(formData.get("dueOn")) || null;
     const assigned = text(formData.get("assignedTo"));
-    if (assigned) patch.assigned_to = assigned;
+    if (assigned) {
+      if (!(await assigneeIsActive(assigned)))
+        redirect(`${back}?notice=failed`);
+      patch.assigned_to = assigned;
+    }
     patch.order_id = optionalId(text(formData.get("orderId")));
     patch.style_id = optionalId(text(formData.get("styleId")));
   }
