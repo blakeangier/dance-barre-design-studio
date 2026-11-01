@@ -27,6 +27,7 @@ export type AreaId =
   | "purchasing"
   | "costing"
   | "financial-reporting"
+  | "finances"
   | "people";
 
 export type AccessProfile = {
@@ -136,6 +137,13 @@ export const AREAS: readonly NavItem[] = [
     description: "Results for both companies, in CAD and USD.",
   },
   {
+    id: "finances",
+    href: "/finances",
+    label: "Finances",
+    description:
+      "Owners' workbook for spend, startup, the projection, people, contracts, expenses, equipment, and outside costumes.",
+  },
+  {
     id: "people",
     href: "/people",
     label: "People",
@@ -179,6 +187,7 @@ export function canAccessArea(profile: AccessProfile, area: AreaId): boolean {
       return role === "owner" || canPurchase;
     case "costing":
     case "financial-reporting":
+    case "finances":
       return role === "owner";
     case "people":
       return (

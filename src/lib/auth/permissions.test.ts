@@ -53,6 +53,16 @@ describe("role areas", () => {
       false,
     );
     assert.equal(canAccessArea(profiles.payroll_admin, "payroll"), true);
+    assert.equal(canAccessArea(profiles.owner, "finances"), true);
+    for (const profile of [
+      profiles.production_manager,
+      profiles.payroll_admin,
+      profiles.employee,
+      profiles.program_director,
+    ]) {
+      assert.equal(canAccessArea(profile, "finances"), false);
+      assert.equal(allowed(profile).includes("finances"), false);
+    }
   });
 
   it("lets production run the floor without payroll, costing, or purchasing", () => {
