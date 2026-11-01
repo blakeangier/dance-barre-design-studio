@@ -1,0 +1,75 @@
+@import "tailwindcss";
+
+@theme inline {
+  --font-sans: var(--font-outfit), "Segoe UI", sans-serif;
+  --font-serif: var(--font-fraunces), Georgia, serif;
+  --color-ink: #202122;
+  --color-muted: #616161;
+  --color-paper: #f7f7f8;
+  --color-card: #ffffff;
+  --color-line: #e4e4e6;
+  --color-purple: #9c78b6;
+  --color-orange: #eba432;
+  --color-red: #e14b3d;
+  --color-pink: #ffa2a7;
+  --color-lime: #c4d160;
+  --color-teal: #78cfde;
+}
+
+body {
+  background: var(--color-paper);
+  color: var(--color-ink);
+  font-family: var(--font-sans);
+}
+
+:focus-visible {
+  outline: 2px solid var(--color-purple);
+  outline-offset: 2px;
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.focus\:not-sr-only:focus {
+  position: static;
+  width: auto;
+  height: auto;
+  margin: 0;
+  overflow: visible;
+  clip: auto;
+  white-space: normal;
+}
+
+@media print {
+  header,
+  nav,
+  .no-print {
+    display: none !important;
+  }
+
+  main {
+    padding: 0 !important;
+  }
+}
+
+.brand-stripe {
+  height: 4px;
+  background: linear-gradient(
+    90deg,
+    #9c78b6,
+    #78cfde,
+    #c4d160,
+    #eba432,
+    #ffa2a7,
+    #e14b3d
+  );
+}
