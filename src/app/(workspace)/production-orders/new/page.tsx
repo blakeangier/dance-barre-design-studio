@@ -13,6 +13,7 @@ import { canEditInventory } from "@/lib/auth/permissions";
 import { firstQueryValue } from "@/lib/auth/notices";
 import { gateArea } from "@/lib/auth/session";
 import { EDIT_NOTICES, ORDER_STATUSES } from "@/lib/records/edit";
+import { createClient } from "@/lib/supabase/server";
 
 export const metadata = { title: "New order" };
 
@@ -38,6 +39,12 @@ async function NewOrder({
   if (!canEditInventory(gate.profile)) return <NoAccess reason="denied" />;
   const notice =
     EDIT_NOTICES[firstQueryValue((await searchParams).notice) ?? ""];
+  const supabase = await createClient();
+  const { data: programRows } = await supabase
+    .from("programs")
+    .select("id, name")
+    .order("name");
+  const programs = (programRows ?? []) as { id: number; name: string }[];
 
   return (
     <div className="mx-auto flex w-full max-w-lg flex-col gap-4">
@@ -70,6 +77,16 @@ async function NewOrder({
             </option>
           ))}
         </SelectField>
+        {programs.length > 0 ? (
+          <SelectField id="programId" name="programId" label="Program">
+            <option value="">Unassigned</option>
+            {programs.map((program) => (
+              <option key={program.id} value={program.id}>
+                {program.name}
+              </option>
+            ))}
+          </SelectField>
+        ) : null}
         <SaveButton label="Create order" />
       </form>
     </div>

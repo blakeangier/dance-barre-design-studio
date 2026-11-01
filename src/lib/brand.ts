@@ -19,6 +19,7 @@ export const AREA_ACCENT: Record<AreaId, string> = {
   purchasing: "border-l-orange",
   costing: "border-l-purple",
   "financial-reporting": "border-l-teal",
+  finances: "border-l-purple",
   people: "border-l-pink",
 };
 
@@ -27,4 +28,5 @@ export const ROLE_BADGE: Record<AppRole, string> = {
   production_manager: "bg-teal text-ink",
   payroll_admin: "bg-orange text-ink",
   employee: "bg-lime text-ink",
+  program_director: "border border-ink bg-card text-ink",
 };

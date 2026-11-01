@@ -2,6 +2,7 @@ export const EMPLOYMENT_TYPES = [
   { value: "", label: "Not set" },
   { value: "full-time", label: "Full-time" },
   { value: "part-time", label: "Part-time" },
+  { value: "contractor", label: "Contractor" },
 ] as const;
 
 export const ORDER_STATUSES = [
@@ -84,13 +85,23 @@ export function personName(
 
 export function employmentType(
   value: FormDataEntryValue | null | undefined,
-): FieldResult<"full-time" | "part-time" | null> {
+): FieldResult<"full-time" | "part-time" | "contractor" | null> {
   const trimmed = text(value);
   if (!trimmed) return { ok: true, value: null };
-  if (trimmed === "full-time" || trimmed === "part-time") {
+  if (
+    trimmed === "full-time" ||
+    trimmed === "part-time" ||
+    trimmed === "contractor"
+  ) {
     return { ok: true, value: trimmed };
   }
   return { ok: false, notice: "employment" };
+}
+
+export function employmentTypeLabel(value: string | null): string | null {
+  if (!value) return null;
+  const match = EMPLOYMENT_TYPES.find((type) => type.value === value);
+  return match?.label ?? value;
 }
 
 export function personalEmail(
@@ -212,7 +223,7 @@ export const EDIT_NOTICES: Record<
   status: { tone: "error", text: "Choose a status from the list." },
   employment: {
     tone: "error",
-    text: "Choose full-time, part-time, or leave the type blank.",
+    text: "Choose full-time, part-time, contractor, or leave the type blank.",
   },
   email: {
     tone: "error",

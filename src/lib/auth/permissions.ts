@@ -7,6 +7,7 @@ export const ROLES = [
   "production_manager",
   "payroll_admin",
   "employee",
+  "program_director",
 ] as const;
 
 export type AppRole = (typeof ROLES)[number];
@@ -26,11 +27,13 @@ export type AreaId =
   | "purchasing"
   | "costing"
   | "financial-reporting"
+  | "finances"
   | "people";
 
 export type AccessProfile = {
   role: AppRole;
   canPurchase: boolean;
+  canUpdateOrderStatus?: boolean;
 };
 
 export type NavItem = {
@@ -45,6 +48,7 @@ export const ROLE_LABELS: Record<AppRole, string> = {
   production_manager: "Production manager",
   payroll_admin: "Payroll",
   employee: "Employee",
+  program_director: "Program director",
 };
 
 export const AREAS: readonly NavItem[] = [
@@ -133,6 +137,13 @@ export const AREAS: readonly NavItem[] = [
     description: "Results for both companies, in CAD and USD.",
   },
   {
+    id: "finances",
+    href: "/finances",
+    label: "Finances",
+    description:
+      "Owners' workbook for spend, startup, the projection, people, contracts, expenses, equipment, and outside costumes.",
+  },
+  {
     id: "people",
     href: "/people",
     label: "People",
@@ -153,10 +164,11 @@ export function canAccessArea(profile: AccessProfile, area: AreaId): boolean {
     case "design-library":
       return role === "owner" || role === "production_manager";
     case "production-orders":
-    case "inventory":
     case "styles":
-    case "suppliers":
       return true;
+    case "inventory":
+    case "suppliers":
+      return role !== "program_director";
     case "tasks":
     case "scheduling":
       return (
@@ -175,6 +187,7 @@ export function canAccessArea(profile: AccessProfile, area: AreaId): boolean {
       return role === "owner" || canPurchase;
     case "costing":
     case "financial-reporting":
+    case "finances":
       return role === "owner";
     case "people":
       return (
@@ -191,6 +204,23 @@ export function canAccessArea(profile: AccessProfile, area: AreaId): boolean {
 
 export function canEditInventory(profile: AccessProfile): boolean {
   return profile.role === "owner" || profile.role === "production_manager";
+}
+
+export function canSuperviseTasks(profile: AccessProfile): boolean {
+  return canUpdateOrderStatus(profile);
+}
+
+export function canOpenTaskBoard(profile: AccessProfile): boolean {
+  return profile.role === "owner" || profile.role === "production_manager";
+}
+
+export function canUpdateOrderStatus(profile: AccessProfile): boolean {
+  if (profile.role === "program_director") return false;
+  return (
+    profile.role === "owner" ||
+    profile.role === "production_manager" ||
+    Boolean(profile.canUpdateOrderStatus)
+  );
 }
 
 export function canSeeCosts(profile: AccessProfile): boolean {

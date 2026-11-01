@@ -5,17 +5,20 @@ import { canEditInventory } from "@/lib/auth/permissions";
 import { getSessionState } from "@/lib/auth/session";
 import { createClient } from "@/lib/supabase/server";
 
-const TYPES = ["receive", "use", "adjust"] as const;
+const TYPES = ["receive", "adjust"] as const;
 
 export async function logStock(materialCode: string, formData: FormData) {
   const state = await getSessionState();
   if (state.status !== "ready") redirect("/login");
 
   const txnType = String(formData.get("txnType") ?? "");
+  if (txnType === "use") {
+    redirect(`/inventory/use?material=${encodeURIComponent(materialCode)}`);
+  }
   if (!TYPES.includes(txnType as (typeof TYPES)[number])) {
     redirect(`/inventory/${encodeURIComponent(materialCode)}?notice=type`);
   }
-  if (!canEditInventory(state.profile) && txnType !== "use") {
+  if (!canEditInventory(state.profile)) {
     redirect(`/inventory/${encodeURIComponent(materialCode)}?notice=denied`);
   }
 

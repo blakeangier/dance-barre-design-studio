@@ -51,6 +51,9 @@ from public.suppliers where supplier_code = 'SAMPLE-SUP';
 insert into public.costume_orders (order_number, production_song)
 values ('SAMPLE-ORDER', 'SAMPLE song');
 
+insert into public.styles (style_key, garment_description)
+values ('SAMPLE-STYLE', 'SAMPLE skirt');
+
 insert into public.order_private (order_id, contact_emails, budget_per_costume)
 select id, 'client@example.com', 12.00
 from public.costume_orders where order_number = 'SAMPLE-ORDER';
@@ -108,10 +111,14 @@ select throws_ok(
 );
 
 insert into public.stock_transactions (
-  txn_code, txn_type, material_id, qty_m, created_by
+  txn_code, txn_type, material_id, qty_m, created_by, usage_kind, style_id
 )
-select 'SAMPLE-USE', 'use', id, 1, '00000000-0000-0000-0000-0000000000b1'
-from public.materials where material_code = 'SAMPLE-FABRIC';
+select 'SAMPLE-USE', 'use', m.id, 1, '00000000-0000-0000-0000-0000000000b1',
+  'sample', s.id
+from public.materials m
+cross join public.styles s
+where m.material_code = 'SAMPLE-FABRIC'
+  and s.style_key = 'SAMPLE-STYLE';
 select is(
   (select count(*)::int from public.stock_transactions where txn_code = 'SAMPLE-USE'),
   1,

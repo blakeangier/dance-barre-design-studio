@@ -8,7 +8,7 @@
     "start": "next start",
     "lint": "eslint",
     "typecheck": "next typegen && tsc --noEmit",
-    "test:unit": "node --experimental-strip-types --test src/lib/auth/*.test.ts src/lib/inventory/*.test.ts src/lib/records/*.test.ts src/lib/schedule/*.test.ts src/lib/payroll/*.test.ts scripts/plm/*.test.mjs",
+    "test:unit": "node --experimental-strip-types --test src/lib/auth/*.test.ts src/lib/finances/*.test.ts src/lib/inventory/*.test.ts src/lib/orders/*.test.ts src/lib/payroll/*.test.ts src/lib/production/*.test.ts src/lib/records/*.test.ts src/lib/schedule/*.test.ts src/lib/tasks/*.test.ts scripts/plm/*.test.mjs",
     "test:db": "supabase test db",
     "format": "prettier --write .",
     "format:check": "prettier --check .",

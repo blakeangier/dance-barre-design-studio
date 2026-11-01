@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { Suspense } from "react";
 import { saveReview } from "@/app/(workspace)/records/review-actions";
+import { PhotoThumb } from "@/components/inventory/photo-thumb";
 import { ListHeader } from "@/components/records/list-header";
 import {
   AreaField,
@@ -13,6 +14,7 @@ import { StatusNote } from "@/components/shell/status-note";
 import { canEditInventory } from "@/lib/auth/permissions";
 import { firstQueryValue } from "@/lib/auth/notices";
 import { gateArea } from "@/lib/auth/session";
+import { photosForMaterials } from "@/lib/inventory/photo-urls";
 import { EDIT_NOTICES, REVIEW_STATUSES } from "@/lib/records/edit";
 import { createClient } from "@/lib/supabase/server";
 
@@ -32,7 +34,10 @@ type ReviewRow = {
   status: string;
   original_text: string | null;
   resolution: string | null;
-  materials: { material_code: string } | { material_code: string }[] | null;
+  materials:
+    | { id: number; material_code: string }
+    | { id: number; material_code: string }[]
+    | null;
   costume_orders: { order_number: string } | { order_number: string }[] | null;
   styles:
     | { id: number; style_key: string }
@@ -74,13 +79,19 @@ async function ReviewScreen({
   let query = supabase
     .from("review_items")
     .select(
-      "id, review_code, source_sheet, record_label, question, priority, status, original_text, resolution, materials(material_code), costume_orders(order_number), styles(id, style_key)",
+      "id, review_code, source_sheet, record_label, question, priority, status, original_text, resolution, materials(id, material_code), costume_orders(order_number), styles(id, style_key)",
     )
     .order("priority")
     .order("review_code");
   if (!showArchived) query = query.neq("status", "closed");
   const { data } = await query;
   const items = (data ?? []) as unknown as ReviewRow[];
+  const photos = await photosForMaterials(
+    items.flatMap((item) => {
+      const material = one(item.materials);
+      return material ? [material.id] : [];
+    }),
+  );
 
   return (
     <div className="flex flex-col gap-4">
@@ -119,12 +130,19 @@ async function ReviewScreen({
               </p>
               <p className="mt-2 flex flex-col gap-1 text-sm">
                 {material ? (
-                  <Link
-                    href={`/inventory/${encodeURIComponent(material.material_code)}`}
-                    className="min-h-11 text-ink"
-                  >
-                    Material {material.material_code}
-                  </Link>
+                  <span className="flex items-center gap-3">
+                    <PhotoThumb
+                      thumbUrl={photos.get(material.id)?.thumbUrl ?? null}
+                      fullUrl={photos.get(material.id)?.fullUrl ?? null}
+                      label={material.material_code}
+                    />
+                    <Link
+                      href={`/inventory/${encodeURIComponent(material.material_code)}`}
+                      className="min-h-11 text-ink"
+                    >
+                      Material {material.material_code}
+                    </Link>
+                  </span>
                 ) : null}
                 {order ? (
                   <Link

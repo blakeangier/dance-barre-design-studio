@@ -6,6 +6,9 @@ import {
   areasFor,
   canAccessArea,
   canRecordPurchase,
+  canOpenTaskBoard,
+  canSuperviseTasks,
+  canUpdateOrderStatus,
   canSeeCosts,
   canSeePrivateRecords,
   canSeeStaffPrivate,
@@ -20,6 +23,7 @@ const profiles: Record<AppRole | "buyer", AccessProfile> = {
   production_manager: { role: "production_manager", canPurchase: false },
   payroll_admin: { role: "payroll_admin", canPurchase: false },
   employee: { role: "employee", canPurchase: false },
+  program_director: { role: "program_director", canPurchase: false },
   buyer: { role: "employee", canPurchase: true },
 };
 
@@ -49,6 +53,16 @@ describe("role areas", () => {
       false,
     );
     assert.equal(canAccessArea(profiles.payroll_admin, "payroll"), true);
+    assert.equal(canAccessArea(profiles.owner, "finances"), true);
+    for (const profile of [
+      profiles.production_manager,
+      profiles.payroll_admin,
+      profiles.employee,
+      profiles.program_director,
+    ]) {
+      assert.equal(canAccessArea(profile, "finances"), false);
+      assert.equal(allowed(profile).includes("finances"), false);
+    }
   });
 
   it("lets production run the floor without payroll, costing, or purchasing", () => {
@@ -109,6 +123,43 @@ describe("role areas", () => {
       canAccessArea(profiles.production_manager, "purchasing"),
       false,
     );
+  });
+
+  it("lets a program director see orders and styles only", () => {
+    const director: AccessProfile = {
+      role: "program_director",
+      canPurchase: false,
+      canUpdateOrderStatus: true,
+    };
+    assert.deepEqual(allowed(director), [
+      "home",
+      "production-orders",
+      "styles",
+    ]);
+    assert.equal(canSeeCosts(director), false);
+    assert.equal(canSeePrivateRecords(director), false);
+    assert.equal(canUpdateOrderStatus(director), false);
+    assert.equal(canSuperviseTasks(profiles.employee), false);
+    assert.equal(
+      canSuperviseTasks({
+        role: "employee",
+        canPurchase: false,
+        canUpdateOrderStatus: true,
+      }),
+      true,
+    );
+    assert.equal(canOpenTaskBoard(profiles.owner), true);
+    assert.equal(canOpenTaskBoard(profiles.employee), false);
+    assert.equal(canUpdateOrderStatus(profiles.employee), false);
+    assert.equal(
+      canUpdateOrderStatus({
+        role: "employee",
+        canPurchase: false,
+        canUpdateOrderStatus: true,
+      }),
+      true,
+    );
+    assert.equal(canUpdateOrderStatus(profiles.production_manager), true);
   });
 });
 

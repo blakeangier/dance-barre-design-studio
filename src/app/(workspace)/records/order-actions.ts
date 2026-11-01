@@ -1,7 +1,11 @@
 "use server";
 
 import { redirect } from "next/navigation";
-import { canEditInventory, canSeePrivateRecords } from "@/lib/auth/permissions";
+import {
+  canEditInventory,
+  canSeePrivateRecords,
+  canUpdateOrderStatus,
+} from "@/lib/auth/permissions";
 import { getSessionState } from "@/lib/auth/session";
 import {
   checked,
@@ -13,6 +17,7 @@ import {
   requiredText,
   type FieldResult,
 } from "@/lib/records/edit";
+import { isProductionStatus } from "@/lib/orders/production-status";
 import { createClient } from "@/lib/supabase/server";
 
 function bail(path: string, notice: string): never {
@@ -29,6 +34,61 @@ function problem(
 ): "duplicate" | "failed" | null {
   if (!error) return null;
   return error.code === "23505" ? "duplicate" : "failed";
+}
+
+export async function assignOrdersToProgram(formData: FormData) {
+  const state = await getSessionState();
+  if (state.status !== "ready") redirect("/login");
+  if (!canUpdateOrderStatus(state.profile)) {
+    redirect("/production-orders/programs?notice=denied");
+  }
+  const ids = formData
+    .getAll("orderId")
+    .map((value) => Number(value))
+    .filter((value) => Number.isInteger(value) && value > 0);
+  if (ids.length === 0) redirect("/production-orders/programs?notice=choose");
+  const programText = String(formData.get("programId") ?? "").trim();
+  if (programText && !/^\d+$/.test(programText)) {
+    redirect("/production-orders/programs?notice=failed");
+  }
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("costume_orders")
+    .update({ program_id: programText ? Number(programText) : null })
+    .in("id", ids);
+  if (error) redirect("/production-orders/programs?notice=failed");
+  redirect("/production-orders/programs?notice=saved");
+}
+
+export async function updateProductionStatus(formData: FormData) {
+  const state = await getSessionState();
+  if (state.status !== "ready") redirect("/login");
+  const orderNumber = String(formData.get("orderNumber") ?? "").trim();
+  const back = `/production-orders/${encodeURIComponent(orderNumber)}`;
+  if (!canUpdateOrderStatus(state.profile)) redirect(`${back}?notice=denied`);
+  const next = String(formData.get("productionStatus") ?? "");
+  const patch: { production_status?: string; program_id?: number | null } = {};
+  if (formData.has("productionStatus")) {
+    if (!isProductionStatus(next)) redirect(`${back}?notice=status`);
+    patch.production_status = next;
+  }
+  if (formData.has("programId")) {
+    const programText = String(formData.get("programId") ?? "").trim();
+    if (programText && !/^\d+$/.test(programText)) {
+      redirect(`${back}?notice=failed`);
+    }
+    patch.program_id = programText ? Number(programText) : null;
+  }
+  if (!patch.production_status && !formData.has("programId")) {
+    redirect(`${back}?notice=status`);
+  }
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("costume_orders")
+    .update(patch)
+    .eq("order_number", orderNumber);
+  if (error) redirect(`${back}?notice=failed`);
+  redirect(`${back}?notice=record-saved`);
 }
 
 async function editor() {
@@ -58,6 +118,10 @@ export async function saveOrder(formData: FormData) {
   const female = take(back, optionalNumber(formData.get("femaleTotal")));
   const male = take(back, optionalNumber(formData.get("maleTotal")));
   const notes = take(back, optionalText(formData.get("notes"), 2000));
+  const includeProgram = formData.has("programId");
+  const programId = includeProgram
+    ? take(back, optionalId(formData.get("programId")))
+    : null;
   const keepArchived = String(formData.get("archivedAt") ?? "").trim();
   const archivedAt = checked(formData.get("archive"))
     ? keepArchived || new Date().toISOString()
@@ -78,6 +142,7 @@ export async function saveOrder(formData: FormData) {
     male_total: male,
     notes,
     archived_at: archivedAt,
+    ...(includeProgram ? { program_id: programId } : {}),
   };
   let orderId = id;
   if (orderId) {

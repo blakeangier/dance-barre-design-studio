@@ -1,6 +1,12 @@
 import Link from "next/link";
 import { Suspense } from "react";
 import { logStock } from "@/app/(workspace)/inventory/actions";
+import {
+  archivePhoto,
+  setPrimaryPhoto,
+} from "@/app/(workspace)/inventory/photo-actions";
+import { AddPhoto } from "@/components/inventory/add-photo";
+import { PhotoThumb } from "@/components/inventory/photo-thumb";
 import { StockBadge } from "@/components/inventory/stock-badge";
 import { MaterialForm } from "@/components/records/material-form";
 import { LoadingLine } from "@/components/shell/loading-line";
@@ -10,6 +16,7 @@ import { canEditInventory, canSeeCosts } from "@/lib/auth/permissions";
 import { gateArea } from "@/lib/auth/session";
 import { firstQueryValue, noticeText } from "@/lib/auth/notices";
 import { metres, money } from "@/lib/inventory/format";
+import { galleryForMaterial } from "@/lib/inventory/photo-urls";
 import { EDIT_NOTICES } from "@/lib/records/edit";
 import { createClient } from "@/lib/supabase/server";
 
@@ -20,9 +27,9 @@ type DetailProps = {
 
 const NOTICES: Record<string, string> = {
   saved: "Stock entry saved.",
-  denied: "You can log use only.",
+  denied: "Receive and adjust are for Elaine and the owners.",
   qty: "Enter a quantity in metres.",
-  type: "Choose receive, use, or adjust.",
+  type: "Choose receive or adjust.",
   failed: "That stock entry did not save.",
 };
 
@@ -54,7 +61,7 @@ async function MaterialScreen({ params, searchParams }: DetailProps) {
   const { data: material } = await supabase
     .from("materials")
     .select(
-      "id, material_code, fabric_name, colour_name, colour_number, fabric_number, content, fabric_type, width_cm, gsm, bin_location, supplier_id, supplier_as_written, needs_review, needs_review_reason, registry_notes, registry_stock_raw, archived_at",
+      "id, material_code, fabric_name, colour_name, colour_number, fabric_number, content, fabric_type, width_cm, gsm, bin_location, reorder_point_m, supplier_id, supplier_as_written, needs_review, needs_review_reason, registry_notes, registry_stock_raw, archived_at",
     )
     .eq("material_code", code)
     .maybeSingle();
@@ -71,32 +78,46 @@ async function MaterialScreen({ params, searchParams }: DetailProps) {
   }
 
   const editor = canEditInventory(gate.profile);
-  const [stockResult, historyResult, costResult, suppliersResult] =
-    await Promise.all([
-      supabase
-        .from("material_availability")
-        .select("on_hand_m, reserved_m, available_m, is_low_stock")
-        .eq("material_id", material.id)
-        .maybeSingle(),
-      supabase
-        .from("stock_transactions")
-        .select(
-          "txn_code, occurred_on, txn_type, qty_m, order_number_raw, description, entered_by",
-        )
-        .eq("material_id", material.id)
-        .order("occurred_on", { ascending: false })
-        .order("txn_code", { ascending: false }),
-      canSeeCosts(gate.profile)
-        ? supabase
-            .from("material_costs")
-            .select("list_price_per_m, net_price_per_m, discount_entered")
-            .eq("material_id", material.id)
-            .maybeSingle()
-        : Promise.resolve({ data: null }),
-      editor
-        ? supabase.from("suppliers").select("id, name").order("name")
-        : Promise.resolve({ data: [] }),
-    ]);
+  const gallery = await galleryForMaterial(material.id);
+  const primary = gallery.find((photo) => photo.isPrimary) ?? gallery[0];
+  const [
+    stockResult,
+    historyResult,
+    costResult,
+    suppliersResult,
+    settingsResult,
+  ] = await Promise.all([
+    supabase
+      .from("material_availability")
+      .select("on_hand_m, reserved_m, available_m, is_low_stock")
+      .eq("material_id", material.id)
+      .maybeSingle(),
+    supabase
+      .from("stock_transactions")
+      .select(
+        "txn_code, occurred_on, txn_type, qty_m, order_number_raw, description, entered_by",
+      )
+      .eq("material_id", material.id)
+      .order("occurred_on", { ascending: false })
+      .order("txn_code", { ascending: false }),
+    canSeeCosts(gate.profile)
+      ? supabase
+          .from("material_costs")
+          .select("list_price_per_m, net_price_per_m, discount_entered")
+          .eq("material_id", material.id)
+          .maybeSingle()
+      : Promise.resolve({ data: null }),
+    editor
+      ? supabase.from("suppliers").select("id, name").order("name")
+      : Promise.resolve({ data: [] }),
+    supabase
+      .from("inventory_settings")
+      .select("low_stock_threshold_m")
+      .eq("id", true)
+      .maybeSingle(),
+  ]);
+  const studioReorder = settingsResult.data?.low_stock_threshold_m ?? 2;
+  const ownReorder = material.reorder_point_m;
 
   return (
     <div className="flex flex-col gap-4">
@@ -104,46 +125,128 @@ async function MaterialScreen({ params, searchParams }: DetailProps) {
         <Link href="/inventory" className="text-sm text-muted">
           Inventory
         </Link>
-        <h1 className="mt-1 font-serif text-3xl text-ink">
-          {material.material_code}
-        </h1>
-        <p className="mt-1 text-sm text-muted">
-          {[material.fabric_name, material.colour_name, material.content]
-            .filter(Boolean)
-            .join(" · ")}
-        </p>
-        <p className="text-sm text-muted">
-          {[
-            material.supplier_as_written,
-            material.bin_location ? `Bin ${material.bin_location}` : null,
-            material.width_cm ? `${material.width_cm} cm` : null,
-          ]
-            .filter(Boolean)
-            .join(" · ")}
-        </p>
-        {material.needs_review ? (
-          <p className="mt-2 text-sm text-ink">
-            {material.needs_review_reason}
-          </p>
-        ) : null}
-        {material.registry_stock_raw ? (
-          <p className="mt-1 text-sm text-muted">
-            Registry stock text: {material.registry_stock_raw}
-          </p>
-        ) : null}
-        <StockBadge
-          onHand={stockResult.data?.on_hand_m ?? null}
-          reserved={stockResult.data?.reserved_m ?? null}
-          available={stockResult.data?.available_m ?? null}
-          low={stockResult.data?.is_low_stock ?? false}
-        />
-        {costResult.data ? (
-          <p className="mt-2 text-sm text-muted">
-            List {money(costResult.data.list_price_per_m)} / m · Net{" "}
-            {money(costResult.data.net_price_per_m)} / m
-          </p>
-        ) : null}
+        <div className="mt-1 flex items-start gap-3">
+          <PhotoThumb
+            thumbUrl={primary?.thumbUrl ?? null}
+            fullUrl={primary?.fullUrl ?? null}
+            label={material.material_code}
+          />
+          <div>
+            <h1 className="font-serif text-3xl text-ink">
+              {material.material_code}
+            </h1>
+            <p className="mt-1 text-sm text-muted">
+              {[material.fabric_name, material.colour_name, material.content]
+                .filter(Boolean)
+                .join(" · ")}
+            </p>
+            <p className="text-sm text-muted">
+              {[
+                material.supplier_as_written,
+                material.bin_location ? `Bin ${material.bin_location}` : null,
+                material.width_cm ? `${material.width_cm} cm` : null,
+              ]
+                .filter(Boolean)
+                .join(" · ")}
+            </p>
+            {material.needs_review ? (
+              <p className="mt-2 text-sm text-ink">
+                {material.needs_review_reason}
+              </p>
+            ) : null}
+            {material.registry_stock_raw ? (
+              <p className="mt-1 text-sm text-muted">
+                Registry stock text: {material.registry_stock_raw}
+              </p>
+            ) : null}
+            <StockBadge
+              onHand={stockResult.data?.on_hand_m ?? null}
+              reserved={stockResult.data?.reserved_m ?? null}
+              available={stockResult.data?.available_m ?? null}
+              low={stockResult.data?.is_low_stock ?? false}
+            />
+            <p className="mt-2 text-sm text-muted">
+              Reorder point {metres(ownReorder ?? studioReorder)}
+              {ownReorder == null ? " (studio default)" : ""}
+            </p>
+            {costResult.data ? (
+              <p className="mt-2 text-sm text-muted">
+                List {money(costResult.data.list_price_per_m)} / m · Net{" "}
+                {money(costResult.data.net_price_per_m)} / m
+              </p>
+            ) : null}
+          </div>
+        </div>
       </div>
+      <section className="flex flex-col gap-3">
+        <h2 className="font-serif text-2xl text-ink">Photos</h2>
+        {gallery.length === 0 ? (
+          <p className="text-sm text-muted">No photo yet.</p>
+        ) : (
+          <ul className="flex flex-col gap-3">
+            {gallery.map((photo) => (
+              <li
+                key={photo.id}
+                className="flex items-start gap-3 rounded-2xl border border-line bg-card p-3"
+              >
+                <PhotoThumb
+                  thumbUrl={photo.thumbUrl}
+                  fullUrl={photo.fullUrl}
+                  label={material.material_code}
+                />
+                <div className="flex flex-col gap-2">
+                  <p className="text-sm text-ink">
+                    {photo.isPrimary ? "Primary photo" : "Extra photo"}
+                  </p>
+                  {editor ? (
+                    <>
+                      {photo.isPrimary ? null : (
+                        <form action={setPrimaryPhoto}>
+                          <input
+                            type="hidden"
+                            name="photoId"
+                            value={photo.id}
+                          />
+                          <input
+                            type="hidden"
+                            name="materialCode"
+                            value={material.material_code}
+                          />
+                          <button
+                            type="submit"
+                            className="min-h-11 text-sm text-ink"
+                          >
+                            Set as primary
+                          </button>
+                        </form>
+                      )}
+                      <form action={archivePhoto}>
+                        <input type="hidden" name="photoId" value={photo.id} />
+                        <input
+                          type="hidden"
+                          name="materialCode"
+                          value={material.material_code}
+                        />
+                        <button
+                          type="submit"
+                          className="min-h-11 text-sm text-ink"
+                        >
+                          Archive photo
+                        </button>
+                      </form>
+                      <AddPhoto
+                        materialId={material.id}
+                        replacePath={photo.storagePath}
+                      />
+                    </>
+                  ) : null}
+                </div>
+              </li>
+            ))}
+          </ul>
+        )}
+        {editor ? <AddPhoto materialId={material.id} /> : null}
+      </section>
       {notice ? (
         <StatusNote tone={noticeTone === "error" ? "error" : "ok"}>
           {notice}
@@ -158,59 +261,74 @@ async function MaterialScreen({ params, searchParams }: DetailProps) {
           cost={costResult.data}
         />
       ) : null}
-      <form
-        action={logStock.bind(null, material.material_code)}
-        className="flex flex-col gap-3 rounded-2xl border border-line bg-card p-4"
+      <Link
+        href={`/inventory/use?material=${encodeURIComponent(material.material_code)}`}
+        className="inline-flex min-h-14 items-center justify-center rounded-full bg-ink px-4 text-lg font-medium text-white"
       >
-        <h2 className="font-serif text-2xl text-ink">Log stock</h2>
-        <label className="text-sm font-medium" htmlFor="txnType">
-          Type
-        </label>
-        <select
-          id="txnType"
-          name="txnType"
-          className="min-h-12 rounded-xl border border-line bg-card px-3 text-base"
-          defaultValue="use"
+        Log material use
+      </Link>
+      {editor ? (
+        <form
+          action={logStock.bind(null, material.material_code)}
+          className="flex flex-col gap-3 rounded-2xl border border-line bg-card p-4"
         >
-          {editor ? <option value="receive">Receive</option> : null}
-          <option value="use">Use</option>
-          {editor ? <option value="adjust">Adjust</option> : null}
-        </select>
-        <label className="text-sm font-medium" htmlFor="qty">
-          Metres
-        </label>
-        <input
-          id="qty"
-          name="qty"
-          inputMode="decimal"
-          required
-          className="min-h-12 rounded-xl border border-line bg-card px-3 text-base"
-        />
-        <label className="text-sm font-medium" htmlFor="orderNumber">
-          Order number
-        </label>
-        <input
-          id="orderNumber"
-          name="orderNumber"
-          className="min-h-12 rounded-xl border border-line bg-card px-3 text-base"
-        />
-        <label className="text-sm font-medium" htmlFor="note">
-          Note
-        </label>
-        <textarea
-          id="note"
-          name="note"
-          className="min-h-24 rounded-xl border border-line bg-card px-3 py-2 text-base"
-        />
-        <button
-          type="submit"
-          className="min-h-12 rounded-full bg-ink px-4 font-medium text-white"
-        >
-          Save
-        </button>
-      </form>
+          <h2 className="font-serif text-2xl text-ink">Log stock</h2>
+          <label className="text-sm font-medium" htmlFor="txnType">
+            Type
+          </label>
+          <select
+            id="txnType"
+            name="txnType"
+            className="min-h-12 rounded-xl border border-line bg-card px-3 text-base"
+            defaultValue="receive"
+          >
+            <option value="receive">Receive</option>
+            <option value="adjust">Adjust</option>
+          </select>
+          <label className="text-sm font-medium" htmlFor="qty">
+            Metres
+          </label>
+          <input
+            id="qty"
+            name="qty"
+            inputMode="decimal"
+            required
+            className="min-h-12 rounded-xl border border-line bg-card px-3 text-base"
+          />
+          <label className="text-sm font-medium" htmlFor="orderNumber">
+            Order number
+          </label>
+          <input
+            id="orderNumber"
+            name="orderNumber"
+            className="min-h-12 rounded-xl border border-line bg-card px-3 text-base"
+          />
+          <label className="text-sm font-medium" htmlFor="note">
+            Note
+          </label>
+          <textarea
+            id="note"
+            name="note"
+            className="min-h-24 rounded-xl border border-line bg-card px-3 py-2 text-base"
+          />
+          <button
+            type="submit"
+            className="min-h-12 rounded-full bg-ink px-4 font-medium text-white"
+          >
+            Save
+          </button>
+        </form>
+      ) : null}
       <section>
-        <h2 className="font-serif text-2xl text-ink">History</h2>
+        <div className="flex items-center justify-between gap-3">
+          <h2 className="font-serif text-2xl text-ink">History</h2>
+          <Link
+            href={`/inventory/usage?material=${encodeURIComponent(material.material_code)}`}
+            className="inline-flex min-h-12 items-center text-sm text-ink"
+          >
+            Usage log
+          </Link>
+        </div>
         <ul className="mt-3 flex flex-col gap-3">
           {(historyResult.data ?? []).map((entry) => (
             <li

@@ -85,6 +85,10 @@ describe("record edit validation", () => {
       value: "full-time",
     });
     assert.deepEqual(employmentType("contractor"), {
+      ok: true,
+      value: "contractor",
+    });
+    assert.deepEqual(employmentType("casual"), {
       ok: false,
       notice: "employment",
     });

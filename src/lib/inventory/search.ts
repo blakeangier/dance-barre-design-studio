@@ -14,6 +14,8 @@ export type InventoryMaterial = {
   reservedM: number | null;
   availableM: number | null;
   isLowStock: boolean;
+  photoThumbUrl?: string | null;
+  photoFullUrl?: string | null;
 };
 
 export type InventoryFilters = {

@@ -6,6 +6,7 @@ import {
   SelectField,
   TextField,
 } from "@/components/records/fields";
+import { MATERIAL_KINDS, UNIT_KINDS } from "@/lib/production/dancer";
 
 type SupplierOption = { id: number; name: string };
 
@@ -21,12 +22,15 @@ type MaterialFields = {
   width_cm: number | string | null;
   gsm: number | string | null;
   bin_location: string | null;
+  reorder_point_m: number | string | null;
   registry_notes: string | null;
   needs_review: boolean;
   needs_review_reason: string | null;
   supplier_id: number | null;
   supplier_as_written: string | null;
   archived_at: string | null;
+  material_kind?: string | null;
+  unit_kind?: string | null;
 };
 
 type CostFields = {
@@ -102,6 +106,30 @@ export function MaterialForm({
         label="Fabric number"
         defaultValue={material?.fabric_number}
       />
+      <SelectField
+        id="materialKind"
+        name="materialKind"
+        label="Kind"
+        defaultValue={material?.material_kind ?? "fabric"}
+      >
+        {MATERIAL_KINDS.map((kind) => (
+          <option key={kind.value} value={kind.value}>
+            {kind.label}
+          </option>
+        ))}
+      </SelectField>
+      <SelectField
+        id="unitKind"
+        name="unitKind"
+        label="Unit"
+        defaultValue={material?.unit_kind ?? "metres"}
+      >
+        {UNIT_KINDS.map((unit) => (
+          <option key={unit.value} value={unit.value}>
+            {unit.label}
+          </option>
+        ))}
+      </SelectField>
       <TextField
         id="fabricType"
         name="fabricType"
@@ -153,6 +181,18 @@ export function MaterialForm({
         label="Bin"
         defaultValue={material?.bin_location}
       />
+      <TextField
+        id="reorderPoint"
+        name="reorderPoint"
+        label="Reorder point (metres)"
+        inputMode="decimal"
+        defaultValue={material?.reorder_point_m}
+      />
+      <p className="text-sm text-muted">
+        Leave this blank to use the studio default of 2 m. The fabric is low
+        when available metres are at or below this number. Uncounted stock is
+        not low.
+      </p>
       <AreaField
         id="notes"
         name="notes"

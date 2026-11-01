@@ -58,6 +58,8 @@ export async function saveMaterial(formData: FormData) {
   const width = take(back, optionalNumber(formData.get("widthCm")));
   const gsm = take(back, optionalNumber(formData.get("gsm")));
   const bin = take(back, optionalText(formData.get("binLocation"), 120));
+  const reorder = take(back, optionalNumber(formData.get("reorderPoint")));
+  if (reorder !== null && reorder < 0) bail(back, "number");
   const notes = take(back, optionalText(formData.get("notes"), 2000));
   const reviewNote = take(back, optionalText(formData.get("reviewNote"), 500));
   const supplierId = take(back, optionalId(formData.get("supplierId")));
@@ -84,12 +86,16 @@ export async function saveMaterial(formData: FormData) {
     width_cm: width,
     gsm,
     bin_location: bin,
+    reorder_point_m: reorder,
+    reorder_point_raw: reorder === null ? null : String(reorder),
     registry_notes: notes,
     needs_review: checked(formData.get("needsReview")),
     needs_review_reason: reviewNote,
     supplier_id: supplierId,
     supplier_as_written: supplierWritten,
     archived_at: archivedAt,
+    material_kind: String(formData.get("materialKind") ?? "fabric"),
+    unit_kind: String(formData.get("unitKind") ?? "metres"),
   };
 
   const supabase = await createClient();

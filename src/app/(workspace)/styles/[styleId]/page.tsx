@@ -8,12 +8,14 @@ import {
   SelectField,
   TextField,
 } from "@/components/records/fields";
+import { PhotoThumb } from "@/components/inventory/photo-thumb";
 import { LoadingLine } from "@/components/shell/loading-line";
 import { NoAccess } from "@/components/shell/no-access";
 import { StatusNote } from "@/components/shell/status-note";
 import { canEditInventory, canSeeCosts } from "@/lib/auth/permissions";
 import { firstQueryValue } from "@/lib/auth/notices";
 import { gateArea } from "@/lib/auth/session";
+import { photosForMaterials } from "@/lib/inventory/photo-urls";
 import { EDIT_NOTICES, SIZE_CODES } from "@/lib/records/edit";
 import { createClient } from "@/lib/supabase/server";
 
@@ -101,7 +103,7 @@ async function StyleScreen({ params, searchParams }: PageProps) {
     );
   }
   const typed = style as StyleRow;
-  const [stagesResult, sizesResult, bomResult, materialsResult] =
+  const [stagesResult, sizesResult, bomResult, materialsResult, scaleResult] =
     await Promise.all([
       supabase
         .from("style_stages")
@@ -121,12 +123,15 @@ async function StyleScreen({ params, searchParams }: PageProps) {
         )
         .eq("style_id", typed.id)
         .order("line_code"),
-      editor
-        ? supabase
-            .from("materials")
-            .select("id, material_code")
-            .order("material_code")
-        : Promise.resolve({ data: [] }),
+      supabase
+        .from("materials")
+        .select("id, material_code")
+        .order("material_code"),
+      supabase
+        .from("size_scale")
+        .select("size_code")
+        .is("archived_at", null)
+        .order("sort_order"),
     ]);
   const stages = (stagesResult.data ?? []) as StageRow[];
   const sizes = new Map(
@@ -134,6 +139,16 @@ async function StyleScreen({ params, searchParams }: PageProps) {
   );
   const bomLines = (bomResult.data ?? []) as BomRow[];
   const materials = (materialsResult.data ?? []) as MaterialOption[];
+  const scaleCodes = ((scaleResult.data ?? []) as { size_code: string }[]).map(
+    (size) => size.size_code,
+  );
+  const sizeCodes = scaleCodes.length > 0 ? scaleCodes : [...SIZE_CODES];
+  const photoIds = [
+    typed.material_id,
+    ...bomLines.map((line) => line.material_id),
+  ].filter((id): id is number => id !== null);
+  const photos = await photosForMaterials(photoIds);
+  const linked = photos.get(typed.material_id ?? -1);
   const costs = new Map<number, CostRow>();
   if (seeCosts && bomLines.length > 0) {
     const { data } = await supabase
@@ -155,6 +170,12 @@ async function StyleScreen({ params, searchParams }: PageProps) {
       <h1 className="font-serif text-3xl text-ink">
         {typed.garment_description ?? typed.style_key}
       </h1>
+      <Link
+        href={`/styles/${typed.id}/tech-pack`}
+        className="inline-flex min-h-11 items-center text-sm text-ink"
+      >
+        Tech pack
+      </Link>
       {notice ? (
         <StatusNote tone={notice.tone}>{notice.text}</StatusNote>
       ) : null}
@@ -230,6 +251,22 @@ async function StyleScreen({ params, searchParams }: PageProps) {
             label="Fabric as written"
             defaultValue={typed.fabric_code_raw}
           />
+          {typed.material_id ? (
+            <div className="flex items-center gap-3">
+              <PhotoThumb
+                thumbUrl={linked?.thumbUrl ?? null}
+                fullUrl={linked?.fullUrl ?? null}
+                label={
+                  materials.find((item) => item.id === typed.material_id)
+                    ?.material_code ?? "Fabric"
+                }
+              />
+              <p className="text-sm text-ink">
+                {materials.find((item) => item.id === typed.material_id)
+                  ?.material_code ?? "Linked fabric"}
+              </p>
+            </div>
+          ) : null}
           <SelectField
             id="materialId"
             name="materialId"
@@ -290,7 +327,7 @@ async function StyleScreen({ params, searchParams }: PageProps) {
             </fieldset>
           ))}
           <h2 className="font-serif text-2xl text-ink">Sizes</h2>
-          {SIZE_CODES.map((code) => {
+          {sizeCodes.map((code) => {
             const row = sizes.get(code);
             return (
               <div key={code}>
@@ -317,6 +354,32 @@ async function StyleScreen({ params, searchParams }: PageProps) {
                 {line.line_code}
                 {line.component ? ` · ${line.component}` : ""}
               </legend>
+              <div className="flex items-center gap-3">
+                <PhotoThumb
+                  thumbUrl={
+                    line.material_id
+                      ? (photos.get(line.material_id)?.thumbUrl ?? null)
+                      : null
+                  }
+                  fullUrl={
+                    line.material_id
+                      ? (photos.get(line.material_id)?.fullUrl ?? null)
+                      : null
+                  }
+                  label={
+                    materials.find((item) => item.id === line.material_id)
+                      ?.material_code ??
+                    line.fabric_as_written ??
+                    "Fabric"
+                  }
+                />
+                <p className="text-sm text-ink">
+                  {materials.find((item) => item.id === line.material_id)
+                    ?.material_code ??
+                    line.fabric_as_written ??
+                    "No linked fabric"}
+                </p>
+              </div>
               <input type="hidden" name="bomId" value={line.id} />
               <input
                 type="hidden"
@@ -392,10 +455,35 @@ async function StyleScreen({ params, searchParams }: PageProps) {
           <SaveButton label="Save style" />
         </form>
       ) : (
-        <p className="text-sm text-muted">
-          {typed.style_key}
-          {typed.order_number_raw ? ` · Order ${typed.order_number_raw}` : ""}
-        </p>
+        <div className="flex flex-col gap-3">
+          <p className="text-sm text-muted">
+            {typed.style_key}
+            {typed.order_number_raw ? ` · Order ${typed.order_number_raw}` : ""}
+          </p>
+          {bomLines.map((line) => (
+            <div key={line.id} className="flex items-center gap-3">
+              <PhotoThumb
+                thumbUrl={
+                  line.material_id
+                    ? (photos.get(line.material_id)?.thumbUrl ?? null)
+                    : null
+                }
+                fullUrl={
+                  line.material_id
+                    ? (photos.get(line.material_id)?.fullUrl ?? null)
+                    : null
+                }
+                label={line.fabric_as_written ?? "Fabric"}
+              />
+              <p className="text-sm text-ink">
+                {materials.find((item) => item.id === line.material_id)
+                  ?.material_code ??
+                  line.fabric_as_written ??
+                  "No linked fabric"}
+              </p>
+            </div>
+          ))}
+        </div>
       )}
     </div>
   );
