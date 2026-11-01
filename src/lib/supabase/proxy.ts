@@ -5,11 +5,16 @@ import {
   requirePublicSupabaseEnv,
 } from "@/lib/supabase/env";
 import { safeNextPath } from "@/lib/auth/redirect";
+import {
+  authParamForwardPath,
+  isPasswordRecoveryPage,
+} from "@/lib/auth/recovery";
 
 function isPublicPath(pathname: string): boolean {
   return (
     pathname.startsWith("/login") ||
     pathname.startsWith("/auth/") ||
+    isPasswordRecoveryPage(pathname) ||
     pathname === "/api/low-stock-digest" ||
     pathname === "/manifest.webmanifest" ||
     pathname === "/sw.js" ||
@@ -62,6 +67,21 @@ export async function updateSession(request: NextRequest) {
   const { data } = await supabase.auth.getClaims();
   const signedIn = Boolean(data?.claims.sub);
   const { pathname } = request.nextUrl;
+
+  // Supabase's Site URL is the app root. A recovery or magic-link redirect
+  // therefore arrives as /?code= or /?token_hash= before any session exists.
+  // The gate below would send that request to /login and clear the query
+  // string, which is why a dashboard recovery email opened the sign-in page.
+  if (request.method === "GET") {
+    const forward = authParamForwardPath(pathname, request.nextUrl.searchParams);
+    if (forward) {
+      const url = request.nextUrl.clone();
+      url.pathname = forward;
+      const redirectResponse = NextResponse.redirect(url);
+      copySession(supabaseResponse, redirectResponse);
+      return redirectResponse;
+    }
+  }
 
   if (!signedIn && !isPublicPath(pathname)) {
     const url = request.nextUrl.clone();
