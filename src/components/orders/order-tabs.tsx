@@ -1,6 +1,10 @@
 import Link from "next/link";
 
-export function OrderTabs({ current }: { current: "orders" | "programs" }) {
+export function OrderTabs({
+  current,
+}: {
+  current: "orders" | "programs" | "calendar" | "sizes";
+}) {
   const item = (href: string, label: string, active: boolean) => (
     <Link
       href={href}
@@ -17,6 +21,8 @@ export function OrderTabs({ current }: { current: "orders" | "programs" }) {
     <nav className="flex gap-2" aria-label="Order views">
       {item("/production-orders", "Orders", current === "orders")}
       {item("/production-orders/programs", "Programs", current === "programs")}
+      {item("/production-orders/calendar", "Calendar", current === "calendar")}
+      {item("/production-orders/sizes", "Sizes", current === "sizes")}
     </nav>
   );
 }

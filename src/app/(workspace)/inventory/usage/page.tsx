@@ -272,7 +272,7 @@ async function UsageScreen({ searchParams }: PageProps) {
         href="/inventory/use"
         className="inline-flex min-h-14 items-center justify-center rounded-full bg-ink px-4 text-lg font-medium text-white"
       >
-        Log fabric use
+        Log material use
       </Link>
       <form
         method="get"

@@ -286,7 +286,7 @@ export function InventoryBrowser({
           href="/inventory/use"
           className="mt-4 inline-flex min-h-14 w-full items-center justify-center rounded-full bg-ink px-4 text-lg font-medium text-white sm:w-auto"
         >
-          Log fabric use
+          Log material use
         </Link>
         <Link
           href="/inventory/usage"

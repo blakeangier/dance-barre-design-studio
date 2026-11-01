@@ -103,7 +103,7 @@ async function StyleScreen({ params, searchParams }: PageProps) {
     );
   }
   const typed = style as StyleRow;
-  const [stagesResult, sizesResult, bomResult, materialsResult] =
+  const [stagesResult, sizesResult, bomResult, materialsResult, scaleResult] =
     await Promise.all([
       supabase
         .from("style_stages")
@@ -127,6 +127,11 @@ async function StyleScreen({ params, searchParams }: PageProps) {
         .from("materials")
         .select("id, material_code")
         .order("material_code"),
+      supabase
+        .from("size_scale")
+        .select("size_code")
+        .is("archived_at", null)
+        .order("sort_order"),
     ]);
   const stages = (stagesResult.data ?? []) as StageRow[];
   const sizes = new Map(
@@ -134,6 +139,10 @@ async function StyleScreen({ params, searchParams }: PageProps) {
   );
   const bomLines = (bomResult.data ?? []) as BomRow[];
   const materials = (materialsResult.data ?? []) as MaterialOption[];
+  const scaleCodes = ((scaleResult.data ?? []) as { size_code: string }[]).map(
+    (size) => size.size_code,
+  );
+  const sizeCodes = scaleCodes.length > 0 ? scaleCodes : [...SIZE_CODES];
   const photoIds = [
     typed.material_id,
     ...bomLines.map((line) => line.material_id),
@@ -161,6 +170,12 @@ async function StyleScreen({ params, searchParams }: PageProps) {
       <h1 className="font-serif text-3xl text-ink">
         {typed.garment_description ?? typed.style_key}
       </h1>
+      <Link
+        href={`/styles/${typed.id}/tech-pack`}
+        className="inline-flex min-h-11 items-center text-sm text-ink"
+      >
+        Tech pack
+      </Link>
       {notice ? (
         <StatusNote tone={notice.tone}>{notice.text}</StatusNote>
       ) : null}
@@ -312,7 +327,7 @@ async function StyleScreen({ params, searchParams }: PageProps) {
             </fieldset>
           ))}
           <h2 className="font-serif text-2xl text-ink">Sizes</h2>
-          {SIZE_CODES.map((code) => {
+          {sizeCodes.map((code) => {
             const row = sizes.get(code);
             return (
               <div key={code}>

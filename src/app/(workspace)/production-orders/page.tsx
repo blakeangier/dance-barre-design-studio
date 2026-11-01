@@ -12,10 +12,12 @@ import { canEditInventory, canSeePrivateRecords } from "@/lib/auth/permissions";
 import { firstQueryValue } from "@/lib/auth/notices";
 import { gateArea } from "@/lib/auth/session";
 import { money } from "@/lib/inventory/format";
+import { todayInToronto } from "@/lib/inventory/usage";
 import {
   PRODUCTION_STATUSES,
   isProductionStatus,
 } from "@/lib/orders/production-status";
+import { orderTimingFlag } from "@/lib/production/schedule";
 import { createClient } from "@/lib/supabase/server";
 
 export const metadata = { title: "Orders" };
@@ -91,6 +93,16 @@ async function OrdersScreen({
     ordersQuery = ordersQuery.eq("program_id", Number(programFilter));
   }
   const ordersResult = await ordersQuery;
+  const milestoneResult = await supabase
+    .from("order_milestones")
+    .select("order_id, production_status, target_on")
+    .is("archived_at", null);
+  const today = todayInToronto();
+  const milestones = (milestoneResult.data ?? []) as {
+    order_id: number;
+    production_status: string;
+    target_on: string;
+  }[];
   const privateResult = canSeePrivateRecords(gate.profile)
     ? await supabase
         .from("order_private")
@@ -185,6 +197,14 @@ async function OrdersScreen({
                   status={order.production_status}
                   cancelled={cancelled}
                 />
+                {cancelled
+                  ? null
+                  : flagLabel(
+                      order.id,
+                      order.production_status,
+                      milestones,
+                      today,
+                    )}
                 {cancelled ? null : (
                   <ProductionSteps status={order.production_status} />
                 )}
@@ -208,6 +228,34 @@ async function OrdersScreen({
         })}
       </ul>
     </div>
+  );
+}
+
+function flagLabel(
+  orderId: number,
+  status: string | null,
+  milestones: {
+    order_id: number;
+    production_status: string;
+    target_on: string;
+  }[],
+  today: string,
+) {
+  const flag = orderTimingFlag(
+    today,
+    status ?? "not_started",
+    milestones
+      .filter((row) => row.order_id === orderId)
+      .map((row) => ({
+        status: row.production_status,
+        targetOn: row.target_on,
+      })),
+  );
+  if (!flag) return null;
+  return (
+    <span className="ml-2 text-sm font-medium text-ink">
+      {flag === "late" ? "Late" : "At risk"}
+    </span>
   );
 }
 

@@ -5,6 +5,8 @@ import {
   saveOrder,
   updateProductionStatus,
 } from "@/app/(workspace)/records/order-actions";
+import { saveOrderDates } from "@/app/(workspace)/records/production-actions";
+import { SizeGrid } from "@/components/orders/size-grid";
 import {
   AreaField,
   CheckField,
@@ -21,6 +23,7 @@ import { LoadingLine } from "@/components/shell/loading-line";
 import { NoAccess } from "@/components/shell/no-access";
 import { StatusNote } from "@/components/shell/status-note";
 import {
+  canAccessArea,
   canEditInventory,
   canSeePrivateRecords,
   canUpdateOrderStatus,
@@ -28,6 +31,8 @@ import {
 import { firstQueryValue } from "@/lib/auth/notices";
 import { gateArea } from "@/lib/auth/session";
 import { photosForMaterials } from "@/lib/inventory/photo-urls";
+import { todayInToronto } from "@/lib/inventory/usage";
+import { isOverdue, taskStatusLabel } from "@/lib/tasks/tasks";
 import {
   PRODUCTION_STATUSES,
   productionStatusLabel,
@@ -56,6 +61,8 @@ type OrderRow = {
   archived_at: string | null;
   production_status: string | null;
   program_id: number | null;
+  due_on: string | null;
+  event_on: string | null;
 };
 
 type PrivateRow = {
@@ -101,7 +108,7 @@ async function OrderScreen({ params, searchParams }: PageProps) {
   const { data: order } = await supabase
     .from("costume_orders")
     .select(
-      "id, order_number, production_song, status, order_date, fitting_target_raw, accessory, female_total, male_total, notes, archived_at, production_status, program_id",
+      "id, order_number, production_song, status, order_date, fitting_target_raw, accessory, female_total, male_total, notes, archived_at, production_status, program_id, due_on, event_on",
     )
     .eq("order_number", orderNumber)
     .maybeSingle();
@@ -116,6 +123,15 @@ async function OrderScreen({ params, searchParams }: PageProps) {
     );
   }
   const typed = order as OrderRow;
+  const showTasks = canAccessArea(gate.profile, "tasks");
+  const taskResult = showTasks
+    ? await supabase
+        .from("tasks")
+        .select(
+          "id, title, status, due_on, assignee:profiles!tasks_assigned_to_fkey(full_name)",
+        )
+        .eq("order_id", typed.id)
+    : { data: [] };
   const [privateResult, stylesResult, fittingsResult, bomResult] =
     await Promise.all([
       canPrivate
@@ -210,6 +226,70 @@ async function OrderScreen({ params, searchParams }: PageProps) {
         Orders
       </Link>
       <h1 className="font-serif text-3xl text-ink">{typed.order_number}</h1>
+      <nav className="no-print flex flex-col gap-2 text-sm">
+        <Link
+          href={`/production-orders/${encodeURIComponent(typed.order_number)}/fabric`}
+          className="inline-flex min-h-11 items-center text-ink"
+        >
+          Fabric needed vs available
+        </Link>
+        <Link
+          href={`/production-orders/${encodeURIComponent(typed.order_number)}/qc`}
+          className="inline-flex min-h-11 items-center text-ink"
+        >
+          Quality check
+        </Link>
+        <Link
+          href={`/production-orders/${encodeURIComponent(typed.order_number)}/fittings`}
+          className="inline-flex min-h-11 items-center text-ink"
+        >
+          Fittings and alterations
+        </Link>
+      </nav>
+      <SizeGrid
+        orderId={typed.id}
+        orderNumber={typed.order_number}
+        canEdit={canStatus}
+        canEditScale={editor}
+      />
+      {showTasks ? (
+        <section className="flex flex-col gap-2">
+          <div className="flex items-center justify-between gap-3">
+            <h2 className="font-serif text-2xl text-ink">Tasks</h2>
+            <Link
+              href={`/tasks/new?order=${typed.id}`}
+              className="text-sm font-medium text-ink"
+            >
+              Add a task
+            </Link>
+          </div>
+          {(
+            (taskResult.data ?? []) as {
+              id: number;
+              title: string;
+              status: string;
+              due_on: string | null;
+              assignee: { full_name: string } | { full_name: string }[] | null;
+            }[]
+          ).map((task) => {
+            const assignee = Array.isArray(task.assignee)
+              ? task.assignee[0]
+              : task.assignee;
+            const today = todayInToronto();
+            return (
+              <Link
+                key={task.id}
+                href={`/tasks/${task.id}`}
+                className="text-sm text-ink"
+              >
+                {task.title} · {assignee?.full_name ?? "Unassigned"} ·{" "}
+                {taskStatusLabel(task.status)}
+                {isOverdue(task.due_on, task.status, today) ? " · Overdue" : ""}
+              </Link>
+            );
+          })}
+        </section>
+      ) : null}
       <div>
         <StatusPill
           status={typed.production_status}
@@ -222,8 +302,65 @@ async function OrderScreen({ params, searchParams }: PageProps) {
           Program {programsResult.error ? "—" : (programName ?? "Unassigned")}
         </p>
         <p className="text-sm text-muted">
-          Due {typed.fitting_target_raw ?? "not set"}
+          Due {typed.due_on ?? typed.fitting_target_raw ?? "not set"}
+          {typed.event_on ? ` · Event ${typed.event_on}` : ""}
         </p>
+        {canStatus ? (
+          <form action={saveOrderDates} className="mt-3 flex flex-col gap-2">
+            <input
+              type="hidden"
+              name="orderNumber"
+              value={typed.order_number}
+            />
+            <label className="text-sm font-medium" htmlFor="dueOn">
+              Due date
+            </label>
+            <input
+              id="dueOn"
+              name="dueOn"
+              type="date"
+              defaultValue={typed.due_on ?? ""}
+              className="min-h-12 rounded-xl border border-line bg-card px-3"
+            />
+            <label className="text-sm font-medium" htmlFor="eventOn">
+              Competition or event
+            </label>
+            <input
+              id="eventOn"
+              name="eventOn"
+              type="date"
+              defaultValue={typed.event_on ?? ""}
+              className="min-h-12 rounded-xl border border-line bg-card px-3"
+            />
+            <label className="text-sm font-medium" htmlFor="milestoneStatus">
+              Milestone step
+            </label>
+            <select
+              id="milestoneStatus"
+              name="milestoneStatus"
+              className="min-h-12 rounded-xl border border-line bg-card px-3"
+              defaultValue=""
+            >
+              <option value="">No milestone change</option>
+              {PRODUCTION_STATUSES.map((status) => (
+                <option key={status.value} value={status.value}>
+                  {status.label}
+                </option>
+              ))}
+            </select>
+            <input
+              name="milestoneOn"
+              type="date"
+              className="min-h-12 rounded-xl border border-line bg-card px-3"
+            />
+            <button
+              type="submit"
+              className="min-h-12 rounded-full border border-ink px-4 text-sm font-medium"
+            >
+              Save dates
+            </button>
+          </form>
+        ) : null}
       </div>
       {showStatusForm || showProgramForm ? (
         <form

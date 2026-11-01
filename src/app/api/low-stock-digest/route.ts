@@ -17,7 +17,13 @@ type MaterialRow = {
   id: number;
   material_code: string;
   fabric_name: string | null;
+  unit_kind: string | null;
 };
+
+function unitLabel(unit: string | null): string {
+  if (unit === "units" || unit === "spools" || unit === "pieces") return unit;
+  return "m";
+}
 
 function asNumber(value: number | string): number {
   const number = typeof value === "number" ? value : Number(value);
@@ -66,7 +72,7 @@ export async function GET(request: Request) {
   const [{ data: materials }, { data: photos }] = await Promise.all([
     admin
       .from("materials")
-      .select("id, material_code, fabric_name")
+      .select("id, material_code, fabric_name, unit_kind")
       .in("id", materialIds),
     admin
       .from("material_photos")
@@ -116,6 +122,7 @@ export async function GET(request: Request) {
         reorderPointM: asNumber(alert.reorder_point_m),
         pageUrl: `${siteUrl()}/inventory/${encodeURIComponent(material.material_code)}`,
         thumbUrl: thumbPath ? (thumbByPath.get(thumbPath) ?? null) : null,
+        unit: unitLabel(material.unit_kind),
       },
     ];
   });

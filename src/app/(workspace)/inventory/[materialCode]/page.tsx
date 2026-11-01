@@ -265,7 +265,7 @@ async function MaterialScreen({ params, searchParams }: DetailProps) {
         href={`/inventory/use?material=${encodeURIComponent(material.material_code)}`}
         className="inline-flex min-h-14 items-center justify-center rounded-full bg-ink px-4 text-lg font-medium text-white"
       >
-        Log fabric use
+        Log material use
       </Link>
       {editor ? (
         <form

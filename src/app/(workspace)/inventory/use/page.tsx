@@ -20,7 +20,7 @@ import {
 } from "@/lib/inventory/usage";
 import { createClient } from "@/lib/supabase/server";
 
-export const metadata = { title: "Log fabric use" };
+export const metadata = { title: "Log material use" };
 
 const GROUP_ID =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;

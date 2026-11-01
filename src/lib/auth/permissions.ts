@@ -27,6 +27,7 @@ export type AreaId =
   | "purchasing"
   | "costing"
   | "financial-reporting"
+  | "finances"
   | "people";
 
 export type AccessProfile = {
@@ -136,6 +137,13 @@ export const AREAS: readonly NavItem[] = [
     description: "Results for both companies, in CAD and USD.",
   },
   {
+    id: "finances",
+    href: "/finances",
+    label: "Finances",
+    description:
+      "Owners' workbook for spend, startup, the projection, people, contracts, expenses, equipment, and outside costumes.",
+  },
+  {
     id: "people",
     href: "/people",
     label: "People",
@@ -179,6 +187,7 @@ export function canAccessArea(profile: AccessProfile, area: AreaId): boolean {
       return role === "owner" || canPurchase;
     case "costing":
     case "financial-reporting":
+    case "finances":
       return role === "owner";
     case "people":
       return (
@@ -194,6 +203,14 @@ export function canAccessArea(profile: AccessProfile, area: AreaId): boolean {
 }
 
 export function canEditInventory(profile: AccessProfile): boolean {
+  return profile.role === "owner" || profile.role === "production_manager";
+}
+
+export function canSuperviseTasks(profile: AccessProfile): boolean {
+  return canUpdateOrderStatus(profile);
+}
+
+export function canOpenTaskBoard(profile: AccessProfile): boolean {
   return profile.role === "owner" || profile.role === "production_manager";
 }
 
@@ -219,6 +236,14 @@ export function canRecordPurchase(profile: AccessProfile): boolean {
 }
 
 export function canSeeStaffPrivate(profile: AccessProfile): boolean {
+  return profile.role === "owner" || profile.role === "payroll_admin";
+}
+
+export function canEditSchedule(profile: AccessProfile): boolean {
+  return profile.role === "owner" || profile.role === "production_manager";
+}
+
+export function canProcessPayroll(profile: AccessProfile): boolean {
   return profile.role === "owner" || profile.role === "payroll_admin";
 }
 

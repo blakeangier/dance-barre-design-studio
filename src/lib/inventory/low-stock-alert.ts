@@ -5,6 +5,7 @@ export type LowStockAlertLine = {
   reorderPointM: number;
   pageUrl: string;
   thumbUrl: string | null;
+  unit?: string;
 };
 
 export function crossedBelowReorderPoint(
@@ -24,8 +25,8 @@ function escapeHtml(value: string): string {
     .replaceAll('"', "&quot;");
 }
 
-function metresText(value: number): string {
-  return `${value.toLocaleString("en-CA", { maximumFractionDigits: 2 })} m`;
+function quantityText(value: number, unit = "m"): string {
+  return `${value.toLocaleString("en-CA", { maximumFractionDigits: 2 })} ${unit}`;
 }
 
 export function lowStockDigest(lines: readonly LowStockAlertLine[]): {
@@ -33,17 +34,19 @@ export function lowStockDigest(lines: readonly LowStockAlertLine[]): {
   text: string;
   html: string;
 } {
+  const fabricOnly = lines.every((line) => (line.unit ?? "m") === "m");
+  const noun = fabricOnly ? "fabric" : "stock";
   const subject =
     lines.length === 1
-      ? `Low fabric: ${lines[0]?.materialCode ?? "1 material"}`
-      : `Low fabric: ${lines.length} materials`;
+      ? `Low ${noun}: ${lines[0]?.materialCode ?? "1 material"}`
+      : `Low ${noun}: ${lines.length} materials`;
   const text = [
-    "These fabrics are at or below their reorder point.",
+    `These ${fabricOnly ? "fabrics" : "materials"} are at or below their reorder point.`,
     "",
     ...lines.flatMap((line) => [
       [line.materialCode, line.fabricName].filter(Boolean).join(" · "),
-      `Available ${metresText(line.availableM)}`,
-      `Reorder point ${metresText(line.reorderPointM)}`,
+      `Available ${quantityText(line.availableM, line.unit)}`,
+      `Reorder point ${quantityText(line.reorderPointM, line.unit)}`,
       line.pageUrl,
       "",
     ]),
@@ -57,7 +60,7 @@ export function lowStockDigest(lines: readonly LowStockAlertLine[]): {
       const image = line.thumbUrl
         ? `<img src="${escapeHtml(line.thumbUrl)}" alt="" width="64" height="64" />`
         : "";
-      return `<p>${image}<br /><strong>${name}</strong><br />Available ${escapeHtml(metresText(line.availableM))}<br />Reorder point ${escapeHtml(metresText(line.reorderPointM))}<br /><a href="${escapeHtml(line.pageUrl)}">Open this fabric</a></p>`;
+      return `<p>${image}<br /><strong>${name}</strong><br />Available ${escapeHtml(quantityText(line.availableM, line.unit))}<br />Reorder point ${escapeHtml(quantityText(line.reorderPointM, line.unit))}<br /><a href="${escapeHtml(line.pageUrl)}">Open this fabric</a></p>`;
     }),
   ].join("");
   return { subject, text, html };
