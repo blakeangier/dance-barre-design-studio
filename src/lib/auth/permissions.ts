@@ -7,6 +7,7 @@ export const ROLES = [
   "production_manager",
   "payroll_admin",
   "employee",
+  "program_director",
 ] as const;
 
 export type AppRole = (typeof ROLES)[number];
@@ -19,14 +20,20 @@ export type AreaId =
   | "scheduling"
   | "payroll"
   | "inventory"
+  | "styles"
+  | "suppliers"
+  | "purchases"
+  | "review"
   | "purchasing"
   | "costing"
   | "financial-reporting"
+  | "finances"
   | "people";
 
 export type AccessProfile = {
   role: AppRole;
   canPurchase: boolean;
+  canUpdateOrderStatus?: boolean;
 };
 
 export type NavItem = {
@@ -41,6 +48,7 @@ export const ROLE_LABELS: Record<AppRole, string> = {
   production_manager: "Production manager",
   payroll_admin: "Payroll",
   employee: "Employee",
+  program_director: "Program director",
 };
 
 export const AREAS: readonly NavItem[] = [
@@ -87,6 +95,30 @@ export const AREAS: readonly NavItem[] = [
     description: "Fabrics and materials on hand.",
   },
   {
+    id: "styles",
+    href: "/styles",
+    label: "Styles",
+    description: "Style records and development stages.",
+  },
+  {
+    id: "suppliers",
+    href: "/suppliers",
+    label: "Suppliers",
+    description: "Where fabric and trim are bought.",
+  },
+  {
+    id: "purchases",
+    href: "/purchases",
+    label: "Purchases",
+    description: "Purchase order lines.",
+  },
+  {
+    id: "review",
+    href: "/review",
+    label: "Review",
+    description: "Questions that still need an answer.",
+  },
+  {
     id: "purchasing",
     href: "/purchasing",
     label: "Purchasing",
@@ -103,6 +135,13 @@ export const AREAS: readonly NavItem[] = [
     href: "/financial-reporting",
     label: "Reports",
     description: "Results for both companies, in CAD and USD.",
+  },
+  {
+    id: "finances",
+    href: "/finances",
+    label: "Finances",
+    description:
+      "Owners' workbook for spend, startup, the projection, people, contracts, expenses, equipment, and outside costumes.",
   },
   {
     id: "people",
@@ -123,9 +162,13 @@ export function canAccessArea(profile: AccessProfile, area: AreaId): boolean {
     case "home":
       return true;
     case "design-library":
-    case "production-orders":
-    case "inventory":
       return role === "owner" || role === "production_manager";
+    case "production-orders":
+    case "styles":
+      return true;
+    case "inventory":
+    case "suppliers":
+      return role !== "program_director";
     case "tasks":
     case "scheduling":
       return (
@@ -133,6 +176,9 @@ export function canAccessArea(profile: AccessProfile, area: AreaId): boolean {
       );
     case "payroll":
       return role === "owner" || role === "payroll_admin";
+    case "purchases":
+    case "review":
+      return role === "owner" || role === "production_manager" || canPurchase;
     case "purchasing":
       // The switch (or being an owner) opens this area and allows recording a buy.
       // Reading supplier prices is wider: every production manager can read them
@@ -141,6 +187,7 @@ export function canAccessArea(profile: AccessProfile, area: AreaId): boolean {
       return role === "owner" || canPurchase;
     case "costing":
     case "financial-reporting":
+    case "finances":
       return role === "owner";
     case "people":
       return (
@@ -153,6 +200,51 @@ export function canAccessArea(profile: AccessProfile, area: AreaId): boolean {
       return neverArea;
     }
   }
+}
+
+export function canEditInventory(profile: AccessProfile): boolean {
+  return profile.role === "owner" || profile.role === "production_manager";
+}
+
+export function canSuperviseTasks(profile: AccessProfile): boolean {
+  return canUpdateOrderStatus(profile);
+}
+
+export function canOpenTaskBoard(profile: AccessProfile): boolean {
+  return profile.role === "owner" || profile.role === "production_manager";
+}
+
+export function canUpdateOrderStatus(profile: AccessProfile): boolean {
+  if (profile.role === "program_director") return false;
+  return (
+    profile.role === "owner" ||
+    profile.role === "production_manager" ||
+    Boolean(profile.canUpdateOrderStatus)
+  );
+}
+
+export function canSeeCosts(profile: AccessProfile): boolean {
+  return canEditInventory(profile) || profile.canPurchase;
+}
+
+export function canSeePrivateRecords(profile: AccessProfile): boolean {
+  return canEditInventory(profile);
+}
+
+export function canRecordPurchase(profile: AccessProfile): boolean {
+  return profile.role === "owner" || profile.canPurchase;
+}
+
+export function canSeeStaffPrivate(profile: AccessProfile): boolean {
+  return profile.role === "owner" || profile.role === "payroll_admin";
+}
+
+export function canEditSchedule(profile: AccessProfile): boolean {
+  return profile.role === "owner" || profile.role === "production_manager";
+}
+
+export function canProcessPayroll(profile: AccessProfile): boolean {
+  return profile.role === "owner" || profile.role === "payroll_admin";
 }
 
 export function areasFor(profile: AccessProfile): NavItem[] {

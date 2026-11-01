@@ -635,8 +635,8 @@ select throws_ok(
 reset role;
 select tests.claims('00000000-0000-0000-0000-0000000000a1');
 set role authenticated;
--- Row security only lets a session update its own profile, so this changes
--- nothing. Role edits go through the server secret key, not this session.
+-- An owner may change someone else's role from their own session.
+-- Changing your own role is still blocked by the trigger above.
 update public.profiles
   set role = 'production_manager'
   where id = '00000000-0000-0000-0000-0000000000a4';
@@ -646,8 +646,8 @@ select is(
     from public.profiles
     where id = '00000000-0000-0000-0000-0000000000a4'
   ),
-  'employee',
-  'an owner session cannot rewrite someone else''s role'
+  'production_manager',
+  'an owner can change someone else''s role'
 );
 
 reset role;

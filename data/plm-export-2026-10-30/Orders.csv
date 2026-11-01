@@ -1,0 +1,43 @@
+Orders – Costume Orders,,,,,,,,,,,,,,,,,,,,,,,
+All orders from the Product Development Tracking file. Header details exist only for Order 005; other orders' details are blank until Elaine supplies them.,,,,,,,,,,,,,,,,,,,,,,,
+Order #,Production / Song,Status (as written),Order Date,Fitting Completion Target,Contacts,Contact Emails,Budget / Costume ($),Accessory,Accessory Cost / each ($),Accessory Qty Purchased,Female Total,Male Total,Total Units,# Styles,# Styles Approved,# Styles Ready to Cut,Budget Total ($),Fabric Cost – BOM ($),Accessory Cost Total ($),Remaining for Cut & Sew ($),Fabric Cost / Costume ($),Notes,Source
+001,Sing Sing Sing,,,,,,,,,,,,,9,5,0,,0,,,,,SOURCE: Product Development Tracking row 4
+002,Can't Turn You Loose,,,,,,,,,,,,,4,0,0,,0,,,,,SOURCE: Product Development Tracking row 14
+003,Yellow Brick Road,,,,,,,,,,,,,12,2,3,,0,,,,,SOURCE: Product Development Tracking row 19
+004,Sunglasses At Night,,,,,,,,,,,,,4,2,1,,0,,,,,SOURCE: Product Development Tracking row 34
+005,Boom Boom Pow,,2026-07-16 00:00:00,End Nov. 2026,Lindsay / Malika,Lindsay: dancebarredirectors@dancebarre.ca; Malika: elitedancebarre@gmail.com,125.0,"Iridescent shrug – custom ordered, purchased (purchaser Lindsay, July 31, 2026)",35.0,69.0,64.0,4.0,68,8,6,4,8500,1269.9,2415,4815.1,18.675,Budget $125 incl. accessory; total cost covers cut & sew and finishing. Accessory qty purchased 69 vs 68 units. Studio email designstudio.dancebarre@gmail.com. Notions: elastic.,SOURCE: Order 005 sheet (Production Overview) + Order 005 Order Form + Product Development Tracking row 41
+006,This Love,,,,,,,,,,,,,5,0,0,,0,,,,,SOURCE: Product Development Tracking row 50
+007,Unspeakable Joy,,,,,,,,,,,,,6,0,0,,0,,,,,SOURCE: Product Development Tracking row 58
+008,"Boot, Scooting Babies",,,,,,,,,,,,,1,0,0,,0,,,,,SOURCE: Product Development Tracking row 65
+009,Before Spring Ends,,,,,,,,,,,,,2,0,0,,0,,,,,SOURCE: Product Development Tracking row 69
+010,When You Come Back,cancelled,,,,,,,,,,,,0,0,0,,0,,,,,SOURCE: Product Development Tracking row 73
+011,Shape of Water,,,,,,,,,,,,,4,1,0,,0,,,,,SOURCE: Product Development Tracking row 77
+012,A Glorious Feeling,,,,,,,,,,,,,1,0,0,,0,,,,,SOURCE: Product Development Tracking row 82
+013,Ballet-Sailed,,,,,,,,,,,,,2,0,0,,0,,,,Marked * in tracking file (meaning not stated),SOURCE: Product Development Tracking row 86
+014,No Surprises,,,,,,,,,,,,,2,0,0,,0,,,,Marked * in tracking file (meaning not stated),SOURCE: Product Development Tracking row 90
+015,Wang Dang,,,,,,,,,,,,,2,1,0,,0,,,,Marked * in tracking file (meaning not stated),SOURCE: Product Development Tracking row 94
+016,I Thought I Was Different,,,,,,,,,,,,,2,0,0,,0,,,,,SOURCE: Product Development Tracking row 98
+017,Valerie,,,,,,,,,,,,,3,3,0,,0,,,,,SOURCE: Product Development Tracking row 105
+018,Here I Am,,,,,,,,,,,,,3,1,0,,0,,,,,SOURCE: Product Development Tracking row 110
+019,Mr. Cellophane,,,,,,,,,,,,,3,0,0,,0,,,,,SOURCE: Product Development Tracking row 113
+020,Out Of Body,,,,,,,,,,,,,2,0,0,,0,,,,,SOURCE: Product Development Tracking row 116
+021,Open Hands,,,,,,,,,,,,,1,0,0,,0,,,,Order # missing in source; inferred from sequence,SOURCE: Product Development Tracking row 
+022,Rhythm of the Night,,,,,,,,,,,,,2,0,0,,0,,,,,SOURCE: Product Development Tracking row 124
+023,Night Changes,,,,,,,,,,,,,3,0,0,,0,,,,,SOURCE: Product Development Tracking row 129
+024,Hung Up,,,,,,,,,,,,,4,0,2,,0,,,,,SOURCE: Product Development Tracking row 133
+025,After All,,,,,,,,,,,,,3,0,0,,0,,,,,SOURCE: Product Development Tracking row 137
+026,Great Escape,cancelled,,,,,,,,,,,,0,0,0,,0,,,,,SOURCE: Product Development Tracking row 141
+027,Public Affair,cancelled,,,,,,,,,,,,0,0,0,,0,,,,,SOURCE: Product Development Tracking row 145
+028,Slipping Through My Fingers,,,,,,,,,,,,,3,0,0,,0,,,,,SOURCE: Product Development Tracking row 148
+029,Liminal,,,,,,,,,,,,,2,0,0,,0,,,,,SOURCE: Product Development Tracking row 151
+030,,Cancelled-purchasing,,,,,,,,,,,,0,0,0,,0,,,,,SOURCE: Product Development Tracking row 155
+031,Ya Ya Ya,,,,,,,,,,,,,3,1,0,,0,,,,,SOURCE: Product Development Tracking row 159
+032,,Cancelled-purchasing,,,,,,,,,,,,0,0,0,,0,,,,,SOURCE: Product Development Tracking row 162
+033,"Jump, Jive & Wail",,,,,,,,,,,,,3,2,0,,0,,,,,SOURCE: Product Development Tracking row 165
+034,Freak Show on The Dance Floor,,,,,,,,,,,,,2,0,0,,0,,,,,SOURCE: Product Development Tracking row 168
+035,Hypericum,,,,,,,,,,,,,2,0,0,,0,,,,,SOURCE: Product Development Tracking row 172
+036,Funky Fonchi,cancelled,,,,,,,,,,,,0,0,0,,0,,,,,SOURCE: Product Development Tracking row 176
+037,Shauneese Jazz,cancelled,,,,,,,,,,,,0,0,0,,0,,,,,SOURCE: Product Development Tracking row 179
+038,Kevin Contemporary,cancelled,,,,,,,,,,,,0,0,0,,0,,,,,SOURCE: Product Development Tracking row 183
+039,Penance,,,,,,,,,,,,,3,0,0,,0,,,,,SOURCE: Product Development Tracking row 187
+040,Cheri Cheri Lady,,,,,,,,,,,,,2,0,0,,0,,,,,SOURCE: Product Development Tracking row 191

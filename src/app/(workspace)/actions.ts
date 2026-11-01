@@ -1,32 +1,44 @@
 "use server";
 
 import { redirect } from "next/navigation";
+import { safeNextPath } from "@/lib/auth/redirect";
 import { getSessionState } from "@/lib/auth/session";
+import { optionalText, personName, phoneNumber } from "@/lib/records/edit";
 import { createClient } from "@/lib/supabase/server";
 
 export async function updateMyDetails(formData: FormData) {
   const state = await getSessionState();
   if (state.status !== "ready") redirect("/login");
 
-  const fullName = String(formData.get("fullName") ?? "").trim();
-  const phone = String(formData.get("phone") ?? "").trim();
-
-  if (fullName.length < 1 || fullName.length > 120) redirect("/?notice=name");
-  if (phone.length > 40) redirect("/?notice=phone");
+  const nextPath = safeNextPath(String(formData.get("next") ?? "/"));
+  const name = personName(formData.get("fullName"));
+  const phone = phoneNumber(formData.get("phone"));
+  if (!name.ok) redirect(`${nextPath}?notice=${name.notice}`);
+  if (!phone.ok) redirect(`${nextPath}?notice=${phone.notice}`);
+  const fullName = name.value;
+  const profileUpdate: { full_name: string; pronouns?: string | null } = {
+    full_name: fullName,
+  };
+  if (formData.has("pronouns")) {
+    const pronouns = optionalText(formData.get("pronouns"), 40);
+    if (!pronouns.ok) redirect(`${nextPath}?notice=${pronouns.notice}`);
+    profileUpdate.pronouns = pronouns.value;
+  }
 
   const supabase = await createClient();
   const [nameResult, phoneResult] = await Promise.all([
-    supabase
-      .from("profiles")
-      .update({ full_name: fullName })
-      .eq("id", state.profile.id),
+    supabase.from("profiles").update(profileUpdate).eq("id", state.profile.id),
     supabase
       .from("profile_contacts")
-      .update({ phone: phone.length > 0 ? phone : null })
+      .update({ phone: phone.value })
       .eq("profile_id", state.profile.id),
   ]);
 
-  if (nameResult.error || phoneResult.error) redirect("/?notice=save-failed");
+  if (nameResult.error || phoneResult.error) {
+    redirect(`${nextPath}?notice=save-failed`);
+  }
 
-  redirect("/?notice=saved");
+  redirect(
+    `${nextPath}?notice=${nextPath === "/account" ? "details-saved" : "saved"}`,
+  );
 }

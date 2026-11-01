@@ -2,5 +2,5 @@ export const inventoryModule = {
   area: "inventory" as const,
   title: "Inventory and fabrics",
   summary:
-    "Fabrics and other materials on hand will be tracked here. Nothing is stored in this phase.",
+    "Fabrics and materials, with on-hand quantities calculated from the stock ledger.",
 };
