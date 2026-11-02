@@ -50,6 +50,7 @@ export function InventoryBrowser({
   showArchived: initialArchived,
   missingPhoto: initialMissing,
   canEdit,
+  canImportPhotos = false,
 }: {
   items: InventoryMaterial[];
   loadError: boolean;
@@ -60,6 +61,7 @@ export function InventoryBrowser({
   showArchived: boolean;
   missingPhoto: boolean;
   canEdit: boolean;
+  canImportPhotos?: boolean;
 }) {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -275,6 +277,14 @@ export function InventoryBrowser({
               className="inline-flex min-h-12 items-center rounded-full bg-ink px-4 font-medium text-white"
             >
               New material
+            </Link>
+          ) : null}
+          {canImportPhotos ? (
+            <Link
+              href="/inventory/import-photos"
+              className="inline-flex min-h-12 items-center rounded-full border border-ink px-4 font-medium text-ink"
+            >
+              Import photos
             </Link>
           ) : null}
         </div>

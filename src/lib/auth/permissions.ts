@@ -219,6 +219,11 @@ export function canEditInventory(profile: AccessProfile): boolean {
   return profile.role === "owner" || profile.role === "production_manager";
 }
 
+// Bulk photo import is owners only. Elaine can still add one photo at a time.
+export function canBulkImportPhotos(profile: AccessProfile): boolean {
+  return profile.role === "owner";
+}
+
 export function canSuperviseTasks(profile: AccessProfile): boolean {
   return canUpdateOrderStatus(profile);
 }

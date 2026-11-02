@@ -5,6 +5,7 @@ import {
   ROLES,
   areasFor,
   canAccessArea,
+  canBulkImportPhotos,
   canRecordPurchase,
   canEditStaffSchedule,
   canOpenTaskBoard,
@@ -183,6 +184,11 @@ describe("role areas", () => {
       true,
     );
     assert.equal(canUpdateOrderStatus(profiles.production_manager), true);
+    assert.equal(canBulkImportPhotos(profiles.owner), true);
+    assert.equal(canBulkImportPhotos(profiles.production_manager), false);
+    assert.equal(canBulkImportPhotos(profiles.employee), false);
+    assert.equal(canBulkImportPhotos(profiles.payroll_admin), false);
+    assert.equal(canBulkImportPhotos(profiles.program_director), false);
   });
 });
 
