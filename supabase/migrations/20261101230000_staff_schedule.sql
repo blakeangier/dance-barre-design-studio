@@ -259,10 +259,13 @@ alter table public.shift_tasks enable row level security;
 create policy staff_shifts_select
   on public.staff_shifts for select to authenticated
   using (
-    archived_at is null
-    and (
+    (
       profile_id = (select auth.uid())
       or (select private.can_read_all_staff_shifts())
+    )
+    and (
+      archived_at is null
+      or (select private.can_edit_staff_schedule())
     )
   );
 

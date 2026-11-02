@@ -8,7 +8,7 @@ create extension if not exists pgtap with schema extensions;
 grant usage on schema extensions to authenticated, anon;
 set search_path to public, extensions;
 
-select plan(12);
+select plan(13);
 
 insert into auth.users (
   instance_id, id, aud, role, email, raw_app_meta_data, raw_user_meta_data,
@@ -216,9 +216,24 @@ select lives_ok(
 );
 
 select is(
-  (select count(*)::int from public.staff_shifts where notes = 'SAMPLE — other shift'),
+  (
+    select count(*)::int
+    from public.staff_shifts
+    where notes = 'SAMPLE — other shift'
+      and archived_at is null
+  ),
   0,
   'an archived shift leaves the week view'
+);
+
+reset role;
+select tests.claims('00000000-0000-0000-0000-0000000000c2');
+set role authenticated;
+
+select is(
+  (select count(*)::int from public.staff_shifts where notes = 'SAMPLE — other shift'),
+  0,
+  'an employee does not see an archived shift'
 );
 
 select * from finish();
