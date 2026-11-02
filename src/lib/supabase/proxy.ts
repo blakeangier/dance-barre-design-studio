@@ -16,6 +16,7 @@ function isPublicPath(pathname: string): boolean {
     pathname.startsWith("/auth/") ||
     isPasswordRecoveryPage(pathname) ||
     pathname === "/api/low-stock-digest" ||
+    pathname === "/api/push-flush" ||
     pathname === "/manifest.webmanifest" ||
     pathname === "/sw.js" ||
     pathname.startsWith("/icons/")

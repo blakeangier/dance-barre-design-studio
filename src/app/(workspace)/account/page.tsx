@@ -1,6 +1,8 @@
+import Link from "next/link";
 import { redirect } from "next/navigation";
 import { Suspense } from "react";
 import { changePassword } from "@/app/(workspace)/account/actions";
+import { EnableNotifications } from "@/app/(workspace)/account/notifications/enable-button";
 import { PayAndHours } from "@/app/(workspace)/account/pay-and-hours";
 import { updateMyDetails } from "@/app/(workspace)/actions";
 import { saveEmployeePrivate } from "@/app/(workspace)/records/staff-actions";
@@ -14,6 +16,7 @@ import {
   WEAK_PASSWORD_TEXT,
 } from "@/lib/auth/password";
 import { firstQueryValue } from "@/lib/auth/notices";
+import { canSendAnnouncement } from "@/lib/push/policy";
 import { getSessionState } from "@/lib/auth/session";
 import { createClient } from "@/lib/supabase/server";
 
@@ -110,6 +113,29 @@ async function AccountScreen({
       {notice ? (
         <StatusNote tone={notice.tone}>{notice.text}</StatusNote>
       ) : null}
+      <section className="rounded-2xl border border-line bg-card p-4">
+        <h2 className="font-serif text-2xl text-ink">Notifications</h2>
+        <p className="mt-2 text-sm text-muted">
+          On iPhone, install the app, open it from the Home Screen, then tap
+          this button.
+        </p>
+        <div className="mt-3">
+          <EnableNotifications />
+        </div>
+        <div className="mt-3 flex flex-col gap-1">
+          <Link href="/account/notifications" className="text-sm font-medium">
+            Notification preferences
+          </Link>
+          <Link href="/install" className="text-sm">
+            Add to Home Screen
+          </Link>
+          {canSendAnnouncement(state.profile) ? (
+            <Link href="/notifications" className="text-sm">
+              Announcements
+            </Link>
+          ) : null}
+        </div>
+      </section>
       <section className="rounded-2xl border border-line bg-card p-4">
         <h2 className="font-serif text-2xl text-ink">Signed in as</h2>
         <form action={updateMyDetails} className="mt-3 flex flex-col gap-3">

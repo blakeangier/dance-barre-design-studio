@@ -9,6 +9,7 @@ import {
 import { getSessionState } from "@/lib/auth/session";
 import { isTaskPhotoPath } from "@/lib/inventory/photos";
 import { isTaskPriority, isTaskStatus } from "@/lib/tasks/tasks";
+import { notifyUser } from "@/lib/push/send";
 import { createClient } from "@/lib/supabase/server";
 
 function text(value: FormDataEntryValue | null): string {
@@ -79,6 +80,14 @@ export async function createTask(formData: FormData) {
     .select("id")
     .single();
   if (error || !data) redirect(`${back}?notice=failed`);
+  await notifyUser({
+    recipientId: assignedTo,
+    actorId: profile.id,
+    event: "task_assigned",
+    title: "Task assigned",
+    body: title,
+    url: `/tasks/${data.id}`,
+  });
   redirect(`/tasks/${data.id}?notice=saved`);
 }
 
@@ -111,9 +120,36 @@ export async function updateTask(formData: FormData) {
     patch.order_id = optionalId(text(formData.get("orderId")));
     patch.style_id = optionalId(text(formData.get("styleId")));
   }
+  const previousAssignee = patch.assigned_to
+    ? await currentAssignee(taskId)
+    : null;
   const { error } = await supabaseUpdate(taskId, patch);
   if (error) redirect(`${back}?notice=failed`);
+  if (
+    typeof patch.assigned_to === "string" &&
+    patch.assigned_to !== previousAssignee
+  ) {
+    await notifyUser({
+      recipientId: patch.assigned_to,
+      actorId: profile.id,
+      event: "task_assigned",
+      title: "Task assigned",
+      body:
+        typeof patch.title === "string" && patch.title ? patch.title : "A task",
+      url: `/tasks/${taskId}`,
+    });
+  }
   redirect(`${back}?notice=saved`);
+}
+
+async function currentAssignee(taskId: string): Promise<string | null> {
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("tasks")
+    .select("assigned_to")
+    .eq("id", Number(taskId))
+    .maybeSingle();
+  return data?.assigned_to ?? null;
 }
 
 async function supabaseUpdate(
