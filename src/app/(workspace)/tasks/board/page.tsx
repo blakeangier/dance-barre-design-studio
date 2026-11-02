@@ -1,23 +1,16 @@
 import Link from "next/link";
 import { Suspense } from "react";
+import { toTaskSheetRows } from "@/app/(workspace)/tasks/sheet-query";
+import { TaskSheet } from "@/components/tasks/task-sheet";
 import { LoadingLine } from "@/components/shell/loading-line";
 import { NoAccess } from "@/components/shell/no-access";
-import { canOpenTaskBoard } from "@/lib/auth/permissions";
+import { canOpenTaskBoard, canUpdateOrderStatus } from "@/lib/auth/permissions";
 import { firstQueryValue } from "@/lib/auth/notices";
 import { gateArea } from "@/lib/auth/session";
 import { todayInToronto } from "@/lib/inventory/usage";
-import {
-  groupByStatus,
-  isOverdue,
-  progressCounts,
-  TASK_PRIORITIES,
-  TASK_STATUSES,
-  taskPriorityLabel,
-  taskStatusLabel,
-} from "@/lib/tasks/tasks";
+import { progressCounts, TASK_PRIORITIES } from "@/lib/tasks/tasks";
 import { OrderSelectOptions } from "@/components/orders/order-options";
 import { orderChoiceLabel, toOrderChoice } from "@/lib/orders/label";
-import { isTaskStatus } from "@/lib/tasks/tasks";
 import { createClient } from "@/lib/supabase/server";
 
 export const metadata = { title: "All tasks" };
@@ -41,8 +34,9 @@ type TaskRow = {
   due_on: string | null;
   priority: string;
   assigned_to: string;
+  created_by: string;
   order_id: number | null;
-  updated_at: string;
+  waiting_reason: string | null;
 };
 
 async function Board({ searchParams }: PageProps) {
@@ -53,7 +47,6 @@ async function Board({ searchParams }: PageProps) {
   const person = firstQueryValue(params.person) ?? "";
   const order = firstQueryValue(params.order) ?? "";
   const program = firstQueryValue(params.program) ?? "";
-  const status = firstQueryValue(params.status) ?? "";
   const priority = firstQueryValue(params.priority) ?? "";
   const overdueOnly = firstQueryValue(params.overdue) === "1";
   const today = todayInToronto();
@@ -61,11 +54,10 @@ async function Board({ searchParams }: PageProps) {
   let query = supabase
     .from("tasks")
     .select(
-      "id, title, status, due_on, priority, assigned_to, order_id, updated_at",
+      "id, title, status, due_on, priority, assigned_to, created_by, order_id, waiting_reason",
     );
   if (person) query = query.eq("assigned_to", person);
   if (/^\d+$/.test(order)) query = query.eq("order_id", Number(order));
-  if (isTaskStatus(status)) query = query.eq("status", status);
   if (priority) query = query.eq("priority", priority);
   if (overdueOnly) {
     query = query.lt("due_on", today).not("status", "in", "(done,cancelled)");
@@ -113,9 +105,7 @@ async function Board({ searchParams }: PageProps) {
   const orderNames = new Map(
     choices.map((row) => [Number(row.id), orderChoiceLabel(row)]),
   );
-  const groups = groupByStatus(
-    tasks.map((task) => ({ ...task, dueOn: task.due_on })),
-  );
+  const sheet = await toTaskSheetRows(tasks);
   const byPerson = progressCounts(
     tasks.map((task) => ({
       key: names.get(task.assigned_to) ?? "Unassigned",
@@ -138,8 +128,8 @@ async function Board({ searchParams }: PageProps) {
       </Link>
       <h1 className="font-serif text-3xl text-ink">All tasks</h1>
       <p className="text-sm text-muted">
-        Every task you can see, grouped by where it is in the process. My tasks
-        stays the shorter list.
+        Every task you can see, in one sheet. Done and cancelled stay hidden
+        until you show them. My tasks stays the shorter list.
       </p>
       <form className="grid gap-2 sm:grid-cols-2" method="get">
         <select
@@ -152,19 +142,6 @@ async function Board({ searchParams }: PageProps) {
           {people.map((personRow) => (
             <option key={personRow.id} value={personRow.id}>
               {personRow.full_name}
-            </option>
-          ))}
-        </select>
-        <select
-          name="status"
-          defaultValue={status}
-          aria-label="Status"
-          className="min-h-12 rounded-xl border border-line bg-card px-3"
-        >
-          <option value="">Every status</option>
-          {TASK_STATUSES.map((item) => (
-            <option key={item.value} value={item.value}>
-              {item.label}
             </option>
           ))}
         </select>
@@ -233,45 +210,12 @@ async function Board({ searchParams }: PageProps) {
           </p>
         ))}
       </section>
-      <div className="grid gap-3 md:grid-cols-5">
-        {TASK_STATUSES.filter(
-          (item) => status === "" || item.value === status,
-        ).map((column) => (
-          <section key={column.value} className="flex flex-col gap-2">
-            <h2 className="font-serif text-xl text-ink">{column.label}</h2>
-            {groups[column.value].length === 0 ? (
-              <p className="text-sm text-muted">None</p>
-            ) : (
-              groups[column.value].map((task) => (
-                <Link
-                  key={task.id}
-                  href={`/tasks/${task.id}`}
-                  className="rounded-2xl border border-line bg-card p-3 text-sm"
-                >
-                  <p className="font-medium text-ink">{task.title}</p>
-                  <p className="text-muted">
-                    {names.get(task.assigned_to) ?? "Unassigned"}
-                    {task.order_id
-                      ? ` · ${orderNames.get(task.order_id) ?? "Order"}`
-                      : ""}
-                  </p>
-                  <p className="text-muted">
-                    {taskStatusLabel(task.status)} ·{" "}
-                    {taskPriorityLabel(task.priority)}
-                    {task.due_on ? ` · Due ${task.due_on}` : " · No due date"}
-                    {isOverdue(task.due_on, task.status, today)
-                      ? " · Overdue"
-                      : ""}
-                  </p>
-                  <p className="text-muted">
-                    Updated {task.updated_at.slice(0, 16).replace("T", " ")}
-                  </p>
-                </Link>
-              ))
-            )}
-          </section>
-        ))}
-      </div>
+      <TaskSheet
+        rows={sheet}
+        viewerId={gate.profile.id}
+        today={today}
+        supervisor={canUpdateOrderStatus(gate.profile)}
+      />
     </div>
   );
 }
