@@ -149,7 +149,7 @@ export const AREAS: readonly NavItem[] = [
     href: "/finances",
     label: "Finances",
     description:
-      "Owners' workbook for spend, startup, the projection, people, contracts, expenses, equipment, and outside costumes.",
+      "Owners' workbook for spend, startup, the projection, people, contracts, expenses, equipment, outside costumes, and past costume spend.",
   },
   {
     id: "people",
