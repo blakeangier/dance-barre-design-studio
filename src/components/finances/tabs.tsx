@@ -21,6 +21,11 @@ const TABS = [
     label: "Outside costumes",
     id: "outside",
   },
+  {
+    href: "/finances/past-spend",
+    label: "Past costume spend",
+    id: "past",
+  },
   { href: "/finances/todos", label: "To-dos", id: "todos" },
 ] as const;
 
