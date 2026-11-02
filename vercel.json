@@ -6,7 +6,7 @@
     },
     {
       "path": "/api/push-flush",
-      "schedule": "*/15 * * * *"
+      "schedule": "0 13 * * *"
     }
   ]
 }

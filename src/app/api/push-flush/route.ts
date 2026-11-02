@@ -17,6 +17,9 @@ type SubscriptionRow = {
   keys: { p256dh?: string; auth?: string };
 };
 
+// Vercel Hobby allows each cron once a day. 13:00 UTC is 8:00 AM
+// America/Toronto in winter and 9:00 AM in summer, when the default
+// quiet window opens. A Pro plan can use */15 * * * * instead.
 export async function GET(request: Request) {
   const cronSecret = process.env.CRON_SECRET;
   const header = request.headers.get("authorization");
