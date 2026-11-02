@@ -11,6 +11,56 @@ export function weekDays(start: string): string[] {
 
 export const WEEKDAY_LABELS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 
+const MONTH_LABELS = [
+  "Jan",
+  "Feb",
+  "Mar",
+  "Apr",
+  "May",
+  "Jun",
+  "Jul",
+  "Aug",
+  "Sep",
+  "Oct",
+  "Nov",
+  "Dec",
+];
+
+const SUNDAY_FIRST = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+
+function utcWeekday(year: number, month: number, day: number): number {
+  const offsets = [0, 3, 2, 5, 0, 3, 5, 1, 4, 6, 2, 4];
+  const adjustedYear = month < 3 ? year - 1 : year;
+  return (
+    (adjustedYear +
+      Math.floor(adjustedYear / 4) -
+      Math.floor(adjustedYear / 100) +
+      Math.floor(adjustedYear / 400) +
+      (offsets[month - 1] ?? 0) +
+      day) %
+    7
+  );
+}
+
+export function shiftDayLabel(iso: string): string {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(iso)) return iso;
+  const year = Number(iso.slice(0, 4));
+  const month = Number(iso.slice(5, 7));
+  const day = Number(iso.slice(8, 10));
+  if (month < 1 || month > 12 || day < 1 || day > 31) return iso;
+  const weekday = SUNDAY_FIRST[utcWeekday(year, month, day)] ?? "";
+  return `${weekday}, ${MONTH_LABELS[month - 1]} ${day}`;
+}
+
+export function shiftFormTitle(
+  mode: "add" | "edit",
+  person: string,
+  iso: string,
+): string {
+  const verb = mode === "add" ? "Adding" : "Editing";
+  return `${verb} shift for ${person} · ${shiftDayLabel(iso)}`;
+}
+
 export function clockMinutes(value: string): number | null {
   const match = /^(\d{2}):(\d{2})/.exec(value);
   if (!match) return null;

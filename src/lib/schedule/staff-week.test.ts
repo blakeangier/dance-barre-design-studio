@@ -2,6 +2,8 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import {
   copyShiftDates,
+  shiftDayLabel,
+  shiftFormTitle,
   shiftsOverlap,
   staffShiftMinutes,
   weekDays,
@@ -9,6 +11,19 @@ import {
 } from "./staff-week.ts";
 
 describe("staff week", () => {
+  it("names the day on an add or edit form", () => {
+    assert.equal(shiftDayLabel("2026-11-02"), "Mon, Nov 2");
+    assert.equal(shiftDayLabel("2026-11-08"), "Sun, Nov 8");
+    assert.equal(
+      shiftFormTitle("add", "Ava", "2026-11-02"),
+      "Adding shift for Ava · Mon, Nov 2",
+    );
+    assert.equal(
+      shiftFormTitle("edit", "Ava", "2026-11-03"),
+      "Editing shift for Ava · Tue, Nov 3",
+    );
+  });
+
   it("starts the week on Monday", () => {
     assert.equal(weekStarting("2026-11-04", "2026-11-01"), "2026-11-02");
     assert.deepEqual(weekDays("2026-11-02"), [

@@ -8,6 +8,7 @@ import {
   updateMyTaskStatus,
 } from "@/app/(workspace)/schedule/actions";
 import { CopyLastWeek } from "@/app/(workspace)/schedule/copy-week";
+import { ScrollShiftFocus } from "@/app/(workspace)/schedule/shift-focus";
 import { OrderSelectOptions } from "@/components/orders/order-options";
 import { StatusNote } from "@/components/shell/status-note";
 import {
@@ -24,6 +25,7 @@ import {
 import { formatHours } from "@/lib/schedule/hours";
 import {
   WEEKDAY_LABELS,
+  shiftFormTitle,
   staffShiftMinutes,
   weekDays,
   weekStarting,
@@ -133,6 +135,23 @@ export async function WeekScreen({ mine, searchParams }: WeekProps) {
       }[]
     ).map((row) => [row.profile_id, row.actual_minutes]),
   );
+  const requestedShift = firstQueryValue(params.shift);
+  const requestedProfile = firstQueryValue(params.profile);
+  const requestedDate = firstQueryValue(params.date);
+  const editingShift =
+    requestedShift && requestedShift !== "new"
+      ? shifts.find((shift) => String(shift.id) === requestedShift)
+      : undefined;
+  const focusProfile =
+    editingShift?.profile_id ??
+    (requestedShift === "new" ? requestedProfile : undefined);
+  const focusDate =
+    editingShift?.shift_date ??
+    (requestedShift === "new" ? requestedDate : undefined);
+  const focusToken =
+    focusProfile && focusDate && /^\d{4}-\d{2}-\d{2}$/.test(focusDate)
+      ? `${focusProfile}:${focusDate}`
+      : null;
   const notice = NOTICES[firstQueryValue(params.notice) ?? ""];
   const prevWeek = days[0] ? addDaysSafe(days[0], -7) : week;
   const nextWeek = days[0] ? addDaysSafe(days[0], 7) : week;
@@ -182,6 +201,7 @@ export async function WeekScreen({ mine, searchParams }: WeekProps) {
       {notice ? (
         <StatusNote tone={notice.tone}>{notice.text}</StatusNote>
       ) : null}
+      <ScrollShiftFocus token={focusToken} />
       {peopleResult && "error" in peopleResult && peopleResult.error ? (
         <p className="text-sm text-muted">
           The schedule is not available until the staff schedule migration is
@@ -192,13 +212,17 @@ export async function WeekScreen({ mine, searchParams }: WeekProps) {
           <table className="w-full min-w-[880px] border-collapse text-sm">
             <thead>
               <tr>
-                <th className="border border-line bg-card px-2 py-2 text-left">
+                <th className="sticky top-0 left-0 z-30 border border-line bg-card px-2 py-2 text-left">
                   Person
                 </th>
                 {days.map((day, index) => (
                   <th
                     key={day}
-                    className="border border-line bg-card px-2 py-2 text-left"
+                    className={`sticky top-0 z-20 border border-line px-2 py-2 text-left ${
+                      focusToken && day === focusDate
+                        ? "bg-[#f3eaf8] shadow-[inset_0_-3px_0_#9c78b6]"
+                        : "bg-card"
+                    }`}
                   >
                     {WEEKDAY_LABELS[index]} {day.slice(5)}
                   </th>
@@ -225,7 +249,13 @@ export async function WeekScreen({ mine, searchParams }: WeekProps) {
                 );
                 return (
                   <tr key={person.id}>
-                    <th className="border border-line bg-card px-2 py-2 text-left font-medium">
+                    <th
+                      className={`sticky left-0 z-10 border border-line px-2 py-2 text-left font-medium ${
+                        focusToken && person.id === focusProfile
+                          ? "bg-[#f3eaf8] shadow-[inset_-3px_0_0_#9c78b6]"
+                          : "bg-card"
+                      }`}
+                    >
                       {person.full_name}
                       {editor || state.profile.role === "payroll_admin" ? (
                         <p className="font-normal text-muted">
@@ -240,10 +270,20 @@ export async function WeekScreen({ mine, searchParams }: WeekProps) {
                       const cell = personShifts.filter(
                         (shift) => shift.shift_date === day,
                       );
+                      const selected =
+                        focusToken !== null &&
+                        person.id === focusProfile &&
+                        day === focusDate;
                       return (
                         <td
                           key={day}
-                          className="border border-line px-1 py-1 align-top"
+                          data-shift-focus={selected ? "cell" : undefined}
+                          aria-current={selected ? "true" : undefined}
+                          className={`border border-line px-1 py-1 align-top ${
+                            selected
+                              ? "bg-[#f3eaf8] shadow-[inset_0_0_0_3px_#9c78b6]"
+                              : ""
+                          }`}
                         >
                           <ul className="flex flex-col gap-1">
                             {cell.map((shift) => {
@@ -259,7 +299,11 @@ export async function WeekScreen({ mine, searchParams }: WeekProps) {
                                   {editor || mine ? (
                                     <Link
                                       href={`${base}?week=${week}&shift=${shift.id}`}
-                                      className="block rounded-lg bg-paper px-2 py-1 text-ink"
+                                      className={`block rounded-lg px-2 py-1 text-ink ${
+                                        String(shift.id) === requestedShift
+                                          ? "bg-white ring-2 ring-[#9c78b6]"
+                                          : "bg-paper"
+                                      }`}
                                     >
                                       {label}
                                       {count > 0
@@ -291,7 +335,7 @@ export async function WeekScreen({ mine, searchParams }: WeekProps) {
                 );
               })}
               <tr>
-                <th className="border border-line bg-card px-2 py-2 text-left">
+                <th className="sticky left-0 z-10 border border-line bg-card px-2 py-2 text-left">
                   Headcount
                 </th>
                 {days.map((day) => {
@@ -317,9 +361,10 @@ export async function WeekScreen({ mine, searchParams }: WeekProps) {
         base={base}
         editor={editor}
         viewerId={state.profile.id}
-        shift={firstQueryValue(params.shift)}
-        profileId={firstQueryValue(params.profile)}
-        date={firstQueryValue(params.date)}
+        people={people}
+        shift={requestedShift}
+        profileId={requestedProfile}
+        date={requestedDate}
       />
     </div>
   );
@@ -336,6 +381,7 @@ async function ShiftDialog({
   base,
   editor,
   viewerId,
+  people,
   shift,
   profileId,
   date,
@@ -344,6 +390,7 @@ async function ShiftDialog({
   base: string;
   editor: boolean;
   viewerId: string;
+  people: { id: string; full_name: string }[];
   shift?: string;
   profileId?: string;
   date?: string;
@@ -367,7 +414,8 @@ async function ShiftDialog({
   const personId = existing?.profile_id ?? profileId ?? viewerId;
   if (!editor && personId !== viewerId) return null;
   const shiftDate = existing?.shift_date ?? date ?? week;
-  const [linked, available, ordersResult] = await Promise.all([
+  const knownName = people.find((person) => person.id === personId)?.full_name;
+  const [linked, available, ordersResult, nameResult] = await Promise.all([
     existing
       ? supabase
           .from("shift_tasks")
@@ -389,7 +437,15 @@ async function ShiftDialog({
           .from("costume_orders")
           .select("id, order_number, production_song, programs(name)")
       : Promise.resolve({ data: [] }),
+    knownName
+      ? Promise.resolve({ data: { full_name: knownName } })
+      : supabase
+          .from("profiles")
+          .select("full_name")
+          .eq("id", personId)
+          .maybeSingle(),
   ]);
+  const personName = nameResult.data?.full_name || "this person";
   const orders = (
     (ordersResult.data ?? []) as {
       id: number;
@@ -412,7 +468,7 @@ async function ShiftDialog({
     <section className="rounded-2xl border border-line bg-card p-4">
       <div className="flex items-center justify-between gap-3">
         <h2 className="font-serif text-2xl text-ink">
-          {existing ? "Shift" : "New shift"}
+          {shiftFormTitle(existing ? "edit" : "add", personName, shiftDate)}
         </h2>
         <Link href={`${base}?week=${week}`} className="text-sm text-ink">
           Close
