@@ -3,6 +3,7 @@
 import { redirect } from "next/navigation";
 import { canEditSchedule } from "@/lib/auth/permissions";
 import { getSessionState } from "@/lib/auth/session";
+import { notifyShiftChange } from "@/lib/push/send";
 import { addDays, localToUtc } from "@/lib/schedule/hours";
 import { createClient } from "@/lib/supabase/server";
 
@@ -64,20 +65,41 @@ export async function saveShift(formData: FormData) {
     ? await supabase.from("shifts").update(row).eq("id", Number(shiftId))
     : await supabase.from("shifts").insert({ ...row, status: "scheduled" });
   if (error) back(week, span, "failed");
+  await notifyShiftChange({
+    recipientId: person,
+    actorId: profile.id,
+    change: shiftId ? "changed" : "created",
+    when: date,
+    start,
+    end,
+  });
   back(week, span, "saved");
 }
 
 export async function cancelShift(formData: FormData) {
   const week = String(formData.get("week") ?? "");
   const span = String(formData.get("span") ?? "7");
-  await editor(week, span);
+  const profile = await editor(week, span);
   const shiftId = Number(String(formData.get("shiftId") ?? ""));
   const supabase = await createClient();
+  const { data: shift } = await supabase
+    .from("shifts")
+    .select("profile_id, work_date")
+    .eq("id", shiftId)
+    .maybeSingle();
   const { error } = await supabase
     .from("shifts")
     .update({ status: "cancelled", cancelled_at: new Date().toISOString() })
     .eq("id", shiftId);
   if (error) back(week, span, "failed");
+  if (shift?.profile_id) {
+    await notifyShiftChange({
+      recipientId: shift.profile_id,
+      actorId: profile.id,
+      change: "cancelled",
+      when: String(shift.work_date),
+    });
+  }
   back(week, span, "saved");
 }
 
@@ -135,6 +157,15 @@ export async function copyLastWeek(formData: FormData) {
   if (rows.length > 0) {
     const { error } = await supabase.from("shifts").insert(rows);
     if (error) back(week, span, "failed");
+    const people = new Set(rows.map((row) => row.profile_id));
+    for (const recipientId of people) {
+      await notifyShiftChange({
+        recipientId,
+        actorId: profile.id,
+        change: "created",
+        when: week,
+      });
+    }
   }
   back(week, span, "saved");
 }
@@ -203,6 +234,15 @@ export async function applyTemplates(formData: FormData) {
   if (rows.length > 0) {
     const { error } = await supabase.from("shifts").insert(rows);
     if (error) back(week, span, "failed");
+    const people = new Set(rows.map((row) => row.profile_id));
+    for (const recipientId of people) {
+      await notifyShiftChange({
+        recipientId,
+        actorId: profile.id,
+        change: "created",
+        when: week,
+      });
+    }
   }
   back(week, span, "saved");
 }

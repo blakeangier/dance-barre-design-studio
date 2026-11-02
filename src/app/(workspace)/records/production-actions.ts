@@ -343,13 +343,24 @@ export async function saveAlteration(formData: FormData) {
     .eq("order_number", orderNumber)
     .maybeSingle();
   if (!order) redirect(`${back}?notice=failed`);
+  const request = text(formData.get("request"));
+  const assignedTo = text(formData.get("assignedTo"));
   const { error } = await supabase.from("alterations").insert({
     order_id: order.id,
-    request: text(formData.get("request")),
+    request,
     asked_by: text(formData.get("askedBy")) || null,
+    assigned_to: assignedTo || null,
     status: "open",
   });
   if (error) redirect(`${back}?notice=failed`);
+  if (assignedTo) {
+    const { notifyAlterationDue } = await import("@/lib/push/send");
+    await notifyAlterationDue({
+      recipientId: assignedTo,
+      actorId: state.profile.id,
+      summary: request || "An alteration was assigned to you.",
+    });
+  }
   redirect(`${back}?notice=saved`);
 }
 
