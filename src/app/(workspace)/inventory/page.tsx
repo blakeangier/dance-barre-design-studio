@@ -2,7 +2,7 @@ import { Suspense } from "react";
 import { InventoryBrowser } from "@/components/inventory/inventory-browser";
 import { LoadingLine } from "@/components/shell/loading-line";
 import { NoAccess } from "@/components/shell/no-access";
-import { canEditInventory } from "@/lib/auth/permissions";
+import { canBulkImportPhotos, canEditInventory } from "@/lib/auth/permissions";
 import { gateArea } from "@/lib/auth/session";
 import { firstQueryValue } from "@/lib/auth/notices";
 import { photosForMaterials } from "@/lib/inventory/photo-urls";
@@ -130,6 +130,7 @@ async function InventoryScreen({
       showArchived={showArchived}
       missingPhoto={firstQueryValue(params.nophoto) === "1"}
       canEdit={canEditInventory(gate.profile)}
+      canImportPhotos={canBulkImportPhotos(gate.profile)}
     />
   );
 }
