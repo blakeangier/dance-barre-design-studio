@@ -58,6 +58,209 @@ export function compareDueSoon(a: string | null, b: string | null): number {
   return a < b ? -1 : 1;
 }
 
+export const OPEN_TASK_STATUSES: readonly TaskStatus[] = [
+  "to_do",
+  "in_progress",
+  "waiting",
+];
+
+export type TaskSheetScope = "mine" | "asked" | "both";
+
+export type TaskSortKey =
+  | "title"
+  | "order"
+  | "assigned"
+  | "asked"
+  | "status"
+  | "priority"
+  | "due"
+  | "shift";
+
+export type TaskSheetRow = {
+  id: number;
+  title: string;
+  orderLabel: string | null;
+  assignedTo: string;
+  assignedName: string;
+  askedBy: string;
+  askedName: string;
+  status: string;
+  priority: string;
+  dueOn: string | null;
+  shiftDays: string;
+  waitingReason: string | null;
+};
+
+const STATUS_RANK = new Map<string, number>(
+  TASK_STATUSES.map((status, index) => [status.value, index]),
+);
+const PRIORITY_RANK = new Map<string, number>(
+  TASK_PRIORITIES.map((priority, index) => [priority.value, index]),
+);
+
+export function canEditTaskStatus(input: {
+  viewerId: string;
+  assignedTo: string;
+  createdBy: string;
+  supervisor: boolean;
+}): boolean {
+  return (
+    input.supervisor ||
+    input.viewerId === input.assignedTo ||
+    input.viewerId === input.createdBy
+  );
+}
+
+export function canCancelTask(input: {
+  viewerId: string;
+  createdBy: string;
+  supervisor: boolean;
+}): boolean {
+  return input.supervisor || input.viewerId === input.createdBy;
+}
+
+export function taskStatusOptions(canCancel: boolean): readonly TaskStatus[] {
+  if (canCancel) return TASK_STATUSES.map((status) => status.value);
+  return TASK_STATUSES.map((status) => status.value).filter(
+    (status) => status !== "cancelled",
+  );
+}
+
+export function taskInScope(
+  row: Pick<TaskSheetRow, "assignedTo" | "askedBy">,
+  viewerId: string,
+  scope: TaskSheetScope | "all",
+): boolean {
+  if (scope === "all") return true;
+  const mine = row.assignedTo === viewerId;
+  const asked = row.askedBy === viewerId && row.assignedTo !== viewerId;
+  if (scope === "mine") return mine;
+  if (scope === "asked") return asked;
+  return mine || asked;
+}
+
+export function filterTaskSheet(
+  rows: readonly TaskSheetRow[],
+  input: {
+    viewerId: string;
+    scope: TaskSheetScope | "all";
+    statuses: readonly string[];
+  },
+): TaskSheetRow[] {
+  const allowed = new Set(input.statuses);
+  return rows.filter(
+    (row) =>
+      taskInScope(row, input.viewerId, input.scope) && allowed.has(row.status),
+  );
+}
+
+function compareText(left: string, right: string): number {
+  return left.localeCompare(right, "en-CA", { sensitivity: "base" });
+}
+
+export function compareTaskRows(
+  left: TaskSheetRow,
+  right: TaskSheetRow,
+  key: TaskSortKey,
+): number {
+  switch (key) {
+    case "title":
+      return compareText(left.title, right.title);
+    case "order": {
+      const leftLabel = left.orderLabel ?? "";
+      const rightLabel = right.orderLabel ?? "";
+      if (leftLabel === rightLabel) return 0;
+      if (!leftLabel) return 1;
+      if (!rightLabel) return -1;
+      return compareText(leftLabel, rightLabel);
+    }
+    case "assigned":
+      return compareText(left.assignedName, right.assignedName);
+    case "asked":
+      return compareText(left.askedName, right.askedName);
+    case "status":
+      return (
+        (STATUS_RANK.get(left.status) ?? 99) -
+        (STATUS_RANK.get(right.status) ?? 99)
+      );
+    case "priority":
+      return (
+        (PRIORITY_RANK.get(left.priority) ?? 99) -
+        (PRIORITY_RANK.get(right.priority) ?? 99)
+      );
+    case "due":
+      return compareDueSoon(left.dueOn, right.dueOn);
+    case "shift":
+      return compareText(left.shiftDays, right.shiftDays);
+    default: {
+      const neverKey: never = key;
+      return neverKey;
+    }
+  }
+}
+
+export function sortTaskRows(
+  rows: readonly TaskSheetRow[],
+  key: TaskSortKey,
+  direction: "asc" | "desc",
+): TaskSheetRow[] {
+  const sorted = [...rows].sort((left, right) => {
+    const compared = compareTaskRows(left, right, key);
+    if (compared !== 0) return direction === "asc" ? compared : -compared;
+    return compareText(left.title, right.title) || left.id - right.id;
+  });
+  return sorted;
+}
+
+const WEEKDAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"] as const;
+const MONTHS = [
+  "Jan",
+  "Feb",
+  "Mar",
+  "Apr",
+  "May",
+  "Jun",
+  "Jul",
+  "Aug",
+  "Sep",
+  "Oct",
+  "Nov",
+  "Dec",
+] as const;
+
+function utcWeekday(year: number, month: number, day: number): number {
+  const offsets = [0, 3, 2, 5, 0, 3, 5, 1, 4, 6, 2, 4];
+  const adjustedYear = month < 3 ? year - 1 : year;
+  return (
+    (adjustedYear +
+      Math.floor(adjustedYear / 4) -
+      Math.floor(adjustedYear / 100) +
+      Math.floor(adjustedYear / 400) +
+      (offsets[month - 1] ?? 0) +
+      day) %
+    7
+  );
+}
+
+export function formatShiftDays(dates: readonly string[]): string {
+  const unique = [
+    ...new Set(
+      dates
+        .map((date) => date.slice(0, 10))
+        .filter((date) => /^\d{4}-\d{2}-\d{2}$/.test(date)),
+    ),
+  ].sort();
+  return unique
+    .map((date) => {
+      const [year, month, day] = date.split("-").map(Number);
+      const weekday =
+        WEEKDAYS[utcWeekday(year ?? 0, month ?? 1, day ?? 1)] ?? "";
+      const monthName = MONTHS[(month ?? 1) - 1] ?? "";
+      return `${weekday}, ${monthName} ${day ?? 1}`;
+    })
+    .join(", ");
+}
+
 export function groupByStatus<
   T extends { status: string; dueOn: string | null },
 >(tasks: readonly T[]): Record<TaskStatus, T[]> {
