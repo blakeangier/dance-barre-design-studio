@@ -6,7 +6,9 @@ import {
   areasFor,
   canAccessArea,
   canRecordPurchase,
+  canEditStaffSchedule,
   canOpenTaskBoard,
+  canReadAllStaffShifts,
   canSuperviseTasks,
   canUpdateOrderStatus,
   canSeeCosts,
@@ -71,6 +73,7 @@ describe("role areas", () => {
       "design-library",
       "production-orders",
       "tasks",
+      "staff-schedule",
       "scheduling",
       "inventory",
       "styles",
@@ -86,6 +89,7 @@ describe("role areas", () => {
       "home",
       "production-orders",
       "tasks",
+      "staff-schedule",
       "scheduling",
       "inventory",
       "styles",
@@ -135,11 +139,26 @@ describe("role areas", () => {
       "home",
       "production-orders",
       "tasks",
+      "staff-schedule",
       "styles",
     ]);
     assert.equal(canAccessArea(profiles.payroll_admin, "tasks"), true);
     assert.equal(canOpenTaskBoard(profiles.payroll_admin), false);
     assert.equal(canOpenTaskBoard(director), false);
+    assert.equal(canAccessArea(director, "staff-schedule"), true);
+    assert.equal(canEditStaffSchedule(director), false);
+    assert.equal(canEditStaffSchedule(profiles.owner), true);
+    assert.equal(canEditStaffSchedule(profiles.payroll_admin), false);
+    assert.equal(canReadAllStaffShifts(profiles.payroll_admin), true);
+    assert.equal(
+      canEditStaffSchedule({
+        role: "employee",
+        canPurchase: false,
+        canEditSchedule: true,
+      }),
+      true,
+    );
+    assert.equal(canReadAllStaffShifts(profiles.employee), false);
     assert.equal(canSeeCosts(director), false);
     assert.equal(canSeePrivateRecords(director), false);
     assert.equal(canUpdateOrderStatus(director), false);

@@ -39,6 +39,7 @@ type PersonRow = {
   role: AppRole;
   can_purchase: boolean;
   can_update_order_status: boolean;
+  can_edit_schedule: boolean;
   is_active: boolean;
   job_title: string | null;
   employment_type: string | null;
@@ -90,7 +91,7 @@ async function PeopleScreen({
   let peopleQuery = supabase
     .from("profiles")
     .select(
-      "id, full_name, role, can_purchase, can_update_order_status, is_active, job_title, employment_type, start_date, start_note, pronouns",
+      "id, full_name, role, can_purchase, can_update_order_status, can_edit_schedule, is_active, job_title, employment_type, start_date, start_note, pronouns",
     )
     .order("full_name");
   if (!showArchived) peopleQuery = peopleQuery.eq("is_active", true);
@@ -260,6 +261,14 @@ async function PeopleScreen({
                       defaultChecked={person.can_update_order_status}
                     />
                     Can update order production status
+                  </label>
+                  <label className="flex min-h-11 items-center gap-2 text-sm">
+                    <input
+                      type="checkbox"
+                      name="canEditSchedule"
+                      defaultChecked={person.can_edit_schedule}
+                    />
+                    Can edit the staff schedule
                   </label>
                   {programs.length > 0 ? (
                     <fieldset className="flex flex-col gap-2">
