@@ -28,6 +28,7 @@ export async function updateAccess(formData: FormData) {
   const fullName = String(formData.get("fullName") ?? "").trim();
   const canPurchase = formData.get("canPurchase") === "on";
   const canUpdateOrderStatus = formData.get("canUpdateOrderStatus") === "on";
+  const canEditSchedule = formData.get("canEditSchedule") === "on";
   const isActive = formData.get("isActive") === "on";
   const programIds = formData
     .getAll("programId")
@@ -71,6 +72,7 @@ export async function updateAccess(formData: FormData) {
         role: roleValue,
         can_purchase: canPurchase,
         can_update_order_status: canUpdateOrderStatus,
+        can_edit_schedule: canEditSchedule,
         full_name: fullName,
       },
     },
@@ -85,6 +87,7 @@ export async function updateAccess(formData: FormData) {
       role: roleValue,
       can_purchase: canPurchase,
       can_update_order_status: canUpdateOrderStatus,
+      can_edit_schedule: canEditSchedule,
       is_active: isActive,
     })
     .eq("id", profileId);

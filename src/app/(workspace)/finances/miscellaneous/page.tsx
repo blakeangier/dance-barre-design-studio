@@ -30,7 +30,9 @@ async function Miscellaneous() {
     ? await Promise.all([
         supabase
           .from("startup_costs")
-          .select("id, occurred_on, description, amount_cad, hst_cad, source_note")
+          .select(
+            "id, occurred_on, description, amount_cad, hst_cad, source_note",
+          )
           .eq("category_id", categoryId)
           .is("archived_at", null),
         supabase
@@ -120,7 +122,13 @@ async function Miscellaneous() {
 function Lines({
   rows,
 }: {
-  rows: { id: number; label: string; amount: number; hst: number; source?: string }[];
+  rows: {
+    id: number;
+    label: string;
+    amount: number;
+    hst: number;
+    source?: string;
+  }[];
 }) {
   if (rows.length === 0) return <p className="text-sm text-muted">None.</p>;
   return (

@@ -45,7 +45,7 @@ export const getSessionState = cache(async (): Promise<SessionState> => {
     supabase
       .from("profiles")
       .select(
-        "id, full_name, role, can_purchase, can_update_order_status, is_active, pronouns, job_title",
+        "id, full_name, role, can_purchase, can_update_order_status, can_edit_schedule, is_active, pronouns, job_title",
       )
       .eq("id", userId)
       .maybeSingle(),
@@ -79,6 +79,7 @@ export const getSessionState = cache(async (): Promise<SessionState> => {
       role: row.role,
       canPurchase: row.can_purchase,
       canUpdateOrderStatus: row.can_update_order_status,
+      canEditSchedule: row.can_edit_schedule,
     },
   };
 });

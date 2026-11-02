@@ -17,6 +17,7 @@ export type AreaId =
   | "design-library"
   | "production-orders"
   | "tasks"
+  | "staff-schedule"
   | "scheduling"
   | "payroll"
   | "inventory"
@@ -34,6 +35,7 @@ export type AccessProfile = {
   role: AppRole;
   canPurchase: boolean;
   canUpdateOrderStatus?: boolean;
+  canEditSchedule?: boolean;
 };
 
 export type NavItem = {
@@ -77,10 +79,16 @@ export const AREAS: readonly NavItem[] = [
     description: "Work assigned on the floor.",
   },
   {
+    id: "staff-schedule",
+    href: "/schedule",
+    label: "Schedule",
+    description: "Who is in this week, and which tasks sit on each shift.",
+  },
+  {
     id: "scheduling",
     href: "/scheduling",
-    label: "Schedule",
-    description: "Who is in, and when.",
+    label: "Shop rota",
+    description: "The shop schedule that timesheets are built from.",
   },
   {
     id: "payroll",
@@ -173,6 +181,8 @@ export function canAccessArea(profile: AccessProfile, area: AreaId): boolean {
       // Every active role can open My tasks. The database still hides tasks
       // that are not theirs, except for owners and the production manager.
       return true;
+    case "staff-schedule":
+      return true;
     case "scheduling":
       return (
         role === "owner" || role === "production_manager" || role === "employee"
@@ -244,6 +254,18 @@ export function canSeeStaffPrivate(profile: AccessProfile): boolean {
 
 export function canEditSchedule(profile: AccessProfile): boolean {
   return profile.role === "owner" || profile.role === "production_manager";
+}
+
+export function canEditStaffSchedule(profile: AccessProfile): boolean {
+  return (
+    profile.role === "owner" ||
+    profile.role === "production_manager" ||
+    Boolean(profile.canEditSchedule)
+  );
+}
+
+export function canReadAllStaffShifts(profile: AccessProfile): boolean {
+  return canEditStaffSchedule(profile) || profile.role === "payroll_admin";
 }
 
 export function canProcessPayroll(profile: AccessProfile): boolean {
