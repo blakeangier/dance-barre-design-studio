@@ -19,6 +19,10 @@ export function canSendAnnouncement(profile: AccessProfile): boolean {
   return profile.role === "owner" || profile.role === "production_manager";
 }
 
+export function canMarkAnnouncementUrgent(profile: AccessProfile): boolean {
+  return canSendAnnouncement(profile);
+}
+
 // The master switch wins. Event and personal switches are not consulted
 // until an owner has turned notifications on.
 export function pushDelivery(input: {

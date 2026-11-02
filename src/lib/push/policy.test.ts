@@ -3,6 +3,7 @@ import { describe, it } from "node:test";
 import type { AccessProfile } from "@/lib/auth/permissions";
 import {
   canManagePushSettings,
+  canMarkAnnouncementUrgent,
   canSendAnnouncement,
   pushDelivery,
 } from "./policy.ts";
@@ -34,6 +35,9 @@ describe("push permissions", () => {
     assert.equal(canSendAnnouncement(employee), false);
     assert.equal(canSendAnnouncement(payroll), false);
     assert.equal(canSendAnnouncement(director), false);
+    assert.equal(canMarkAnnouncementUrgent(owner), true);
+    assert.equal(canMarkAnnouncementUrgent(production), true);
+    assert.equal(canMarkAnnouncementUrgent(employee), false);
   });
 });
 

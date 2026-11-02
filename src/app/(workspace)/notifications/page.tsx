@@ -169,6 +169,10 @@ async function Announcements({
           rows={3}
           className="rounded-xl border border-line px-3 py-2"
         />
+        <label className="flex min-h-11 items-center gap-2 text-sm">
+          <input type="checkbox" name="urgent" />
+          Urgent. This skips quiet hours only for people who allowed that.
+        </label>
         <label className="text-sm font-medium" htmlFor="recipient">
           Who
         </label>

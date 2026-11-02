@@ -2,6 +2,7 @@
 
 import { redirect } from "next/navigation";
 import { getSessionState } from "@/lib/auth/session";
+import { clockText, isKnownTimeZone } from "@/lib/push/quiet-hours";
 import { createClient } from "@/lib/supabase/server";
 
 function back(notice: string): never {
@@ -54,6 +55,10 @@ export async function savePushSubscription(input: {
 export async function savePushPreferences(formData: FormData) {
   const state = await getSessionState();
   if (state.status !== "ready") redirect("/login");
+  const start = clockText(String(formData.get("quietStart") ?? ""));
+  const end = clockText(String(formData.get("quietEnd") ?? ""));
+  const zone = String(formData.get("timeZone") ?? "");
+  if (!start || !end || !isKnownTimeZone(zone)) back("hours");
   const supabase = await createClient();
   const { error } = await supabase.from("push_preferences").upsert({
     user_id: state.profile.id,
@@ -61,6 +66,10 @@ export async function savePushPreferences(formData: FormData) {
     task_assigned: formData.get("taskAssigned") === "on",
     alteration_due: formData.get("alterationDue") === "on",
     announcements: formData.get("announcements") === "on",
+    quiet_start: start,
+    quiet_end: end,
+    time_zone: zone,
+    urgent_bypass: formData.get("urgentBypass") === "on",
   });
   back(error ? "failed" : "saved");
 }

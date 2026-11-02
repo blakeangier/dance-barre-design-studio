@@ -2,6 +2,12 @@ import "server-only";
 
 import webpush from "web-push";
 import { pushDelivery, type PushEvent } from "@/lib/push/policy";
+import {
+  DEFAULT_PUSH_TIME_ZONE,
+  DEFAULT_WINDOW_END,
+  DEFAULT_WINDOW_START,
+  quietPlan,
+} from "@/lib/push/quiet-hours";
 import { createClient } from "@/lib/supabase/server";
 
 type SettingsRow = {
@@ -47,6 +53,7 @@ export async function notifyUser(input: {
   body: string;
   url?: string;
   actorId: string;
+  urgent?: boolean;
 }): Promise<void> {
   if (!input.recipientId || input.recipientId === input.actorId) return;
   const title = clip(input.title, 80);
@@ -88,6 +95,38 @@ export async function notifyUser(input: {
           "Push notifications are off.",
         );
       }
+      return;
+    }
+
+    const quiet = await quietWindow(supabase, input.recipientId);
+    const urgent = Boolean(input.urgent) && input.event === "announcements";
+    const plan = quietPlan({
+      now: new Date(),
+      start: quiet.start,
+      end: quiet.end,
+      timeZone: quiet.timeZone,
+      urgent,
+      urgentBypass: quiet.urgentBypass,
+    });
+    if (plan.action === "queue") {
+      await supabase.from("pending_notifications").insert({
+        user_id: input.recipientId,
+        event_kind: input.event,
+        title,
+        body,
+        url: safeUrl(input.url),
+        urgent,
+        deliver_at: plan.deliverAt.toISOString(),
+        created_by: input.actorId,
+      });
+      await record(
+        supabase,
+        input,
+        title,
+        body,
+        "queued",
+        "Waiting for this person's next open hours.",
+      );
       return;
     }
 
@@ -225,7 +264,7 @@ async function record(
   },
   title: string,
   body: string,
-  status: "sent" | "skipped" | "failed" | "revoked",
+  status: "sent" | "skipped" | "failed" | "revoked" | "queued",
   detail: string | null,
 ) {
   await supabase.from("notification_log").insert({
@@ -237,6 +276,46 @@ async function record(
     detail,
     created_by: input.actorId,
   });
+}
+
+async function quietWindow(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  recipientId: string,
+): Promise<{
+  start: string;
+  end: string;
+  timeZone: string;
+  urgentBypass: boolean;
+}> {
+  const fallback = {
+    start: DEFAULT_WINDOW_START,
+    end: DEFAULT_WINDOW_END,
+    timeZone: DEFAULT_PUSH_TIME_ZONE,
+    urgentBypass: false,
+  };
+  const { data, error } = await supabase.rpc("push_quiet_window", {
+    recipient: recipientId,
+  });
+  const row = (data ?? [])[0] as
+    | {
+        quiet_start: string;
+        quiet_end: string;
+        time_zone: string;
+        urgent_bypass: boolean;
+      }
+    | undefined;
+  if (error || !row) return fallback;
+  return {
+    start: String(row.quiet_start).slice(0, 5),
+    end: String(row.quiet_end).slice(0, 5),
+    timeZone: row.time_zone || DEFAULT_PUSH_TIME_ZONE,
+    urgentBypass: Boolean(row.urgent_bypass),
+  };
+}
+
+function safeUrl(value: string | undefined): string {
+  if (value && value.startsWith("/") && value.length <= 300) return value;
+  return "/";
 }
 
 function clip(value: string, max: number): string {

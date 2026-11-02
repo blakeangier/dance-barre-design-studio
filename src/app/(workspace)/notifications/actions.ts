@@ -2,7 +2,11 @@
 
 import { redirect } from "next/navigation";
 import { getSessionState } from "@/lib/auth/session";
-import { canManagePushSettings, canSendAnnouncement } from "@/lib/push/policy";
+import {
+  canManagePushSettings,
+  canMarkAnnouncementUrgent,
+  canSendAnnouncement,
+} from "@/lib/push/policy";
 import { notifyUser } from "@/lib/push/send";
 import { createClient } from "@/lib/supabase/server";
 
@@ -36,6 +40,8 @@ export async function sendAnnouncement(formData: FormData) {
   const title = String(formData.get("title") ?? "").trim();
   const message = String(formData.get("message") ?? "").trim();
   const recipient = String(formData.get("recipient") ?? "all");
+  const urgent =
+    canMarkAnnouncementUrgent(state.profile) && formData.get("urgent") === "on";
   if (!title || title.length > 80 || !message || message.length > 180) {
     back("invalid");
   }
@@ -72,6 +78,7 @@ export async function sendAnnouncement(formData: FormData) {
       title,
       body: message,
       url: "/",
+      urgent,
     });
   }
   back("sent");

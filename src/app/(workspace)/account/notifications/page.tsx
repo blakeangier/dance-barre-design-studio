@@ -7,6 +7,12 @@ import { LoadingLine } from "@/components/shell/loading-line";
 import { NoAccess } from "@/components/shell/no-access";
 import { StatusNote } from "@/components/shell/status-note";
 import { canSendAnnouncement } from "@/lib/push/policy";
+import {
+  DEFAULT_PUSH_TIME_ZONE,
+  DEFAULT_WINDOW_END,
+  DEFAULT_WINDOW_START,
+  PUSH_TIME_ZONES,
+} from "@/lib/push/quiet-hours";
 import { firstQueryValue } from "@/lib/auth/notices";
 import { getSessionState } from "@/lib/auth/session";
 import { createClient } from "@/lib/supabase/server";
@@ -20,6 +26,10 @@ type PageProps = {
 const NOTICES: Record<string, { tone: "ok" | "error"; text: string }> = {
   saved: { tone: "ok", text: "Your notification choices are saved." },
   failed: { tone: "error", text: "Those choices did not save." },
+  hours: {
+    tone: "error",
+    text: "Choose a start, an end, and a time zone.",
+  },
 };
 
 export default function NotificationsPage(props: PageProps) {
@@ -43,9 +53,16 @@ async function NotificationsScreen({
   const supabase = await createClient();
   const { data: prefs } = await supabase
     .from("push_preferences")
-    .select("shift_changes, task_assigned, alteration_due, announcements")
+    .select(
+      "shift_changes, task_assigned, alteration_due, announcements, quiet_start, quiet_end, time_zone, urgent_bypass",
+    )
     .eq("user_id", state.profile.id)
     .maybeSingle();
+  const { count: waitingCount } = await supabase
+    .from("pending_notifications")
+    .select("id", { count: "exact", head: true })
+    .eq("user_id", state.profile.id)
+    .is("sent_at", null);
   const choices = {
     shiftChanges: prefs?.shift_changes ?? true,
     taskAssigned: prefs?.task_assigned ?? true,
@@ -106,6 +123,66 @@ async function NotificationsScreen({
           label="Announcements"
           checked={choices.announcements}
         />
+        <h2 className="mt-2 font-serif text-2xl text-ink">Quiet hours</h2>
+        <p className="text-sm text-muted">
+          Notices outside this window wait and arrive together when it opens.
+          The default is 8:00 AM to 9:00 PM, America/Toronto.
+        </p>
+        {waitingCount ? (
+          <p className="text-sm text-ink">
+            {waitingCount} waiting until your next open hours.
+          </p>
+        ) : null}
+        <label className="text-sm font-medium" htmlFor="quietStart">
+          From
+        </label>
+        <input
+          id="quietStart"
+          name="quietStart"
+          type="time"
+          required
+          defaultValue={String(
+            prefs?.quiet_start ?? DEFAULT_WINDOW_START,
+          ).slice(0, 5)}
+          className="min-h-12 rounded-xl border border-line px-3"
+        />
+        <label className="text-sm font-medium" htmlFor="quietEnd">
+          Until
+        </label>
+        <input
+          id="quietEnd"
+          name="quietEnd"
+          type="time"
+          required
+          defaultValue={String(prefs?.quiet_end ?? DEFAULT_WINDOW_END).slice(
+            0,
+            5,
+          )}
+          className="min-h-12 rounded-xl border border-line px-3"
+        />
+        <label className="text-sm font-medium" htmlFor="timeZone">
+          Time zone
+        </label>
+        <select
+          id="timeZone"
+          name="timeZone"
+          defaultValue={prefs?.time_zone ?? DEFAULT_PUSH_TIME_ZONE}
+          className="min-h-12 rounded-xl border border-line px-3"
+        >
+          {PUSH_TIME_ZONES.map((zone) => (
+            <option key={zone} value={zone}>
+              {zone}
+            </option>
+          ))}
+        </select>
+        <label className="flex min-h-11 items-center gap-2 text-sm">
+          <input
+            type="checkbox"
+            name="urgentBypass"
+            defaultChecked={Boolean(prefs?.urgent_bypass)}
+          />
+          Let urgent announcements through outside these hours
+        </label>
         <button
           type="submit"
           className="min-h-12 rounded-full bg-ink px-4 font-medium text-white"
